@@ -376,7 +376,7 @@ Prevents any storage account (which our AI workload will use) from being publicl
 
 Enforces that resources use managed identities instead of stored credentials.
 
-1. Definitions → search: `Managed identity should be used in your web app`
+1. Definitions → search: `App Service apps should use managed identity`
 2. Click the policy → **Assign**
 3. **Scope:** Your subscription
 4. **Assignment name:** `Require Managed Identity`
