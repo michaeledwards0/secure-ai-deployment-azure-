@@ -154,7 +154,7 @@ Named locations let Conditional Access make decisions based on where a sign-in o
 
 ### 4.1 — Create Trusted Location (United States)
 
-1. Entra portal → **Security** (left sidebar)  → **Protect** → **Conditional Access** → **Named locations**
+1. Entra portal → **Security** (left sidebar)  → **Protect** → **Conditional Access** → **Manage**  → **Named locations**
 2. Click **+ Countries location**
 3. **Name:** `Trusted Countries — United States`
 4. **Countries/Regions:** Select **United States**
