@@ -154,7 +154,7 @@ Named locations let Conditional Access make decisions based on where a sign-in o
 
 ### 4.1 — Create Trusted Location (United States)
 
-1. Entra portal → **Security** (left sidebar)  → **Protect** → **Conditional Access** → **Manage**  → **Named locations**
+1. Entra portal → **Security** (left sidebar) → **Protect** → **Conditional Access** → **Manage** → **Named locations**
 2. Click **+ Countries location**
 3. **Name:** `Trusted Countries — United States`
 4. **Countries/Regions:** Select **United States**
@@ -294,30 +294,56 @@ Click **Update**
 
 ---
 
-## Section 7: Enable Identity Protection
+## Section 7: Configure Risk-Based Conditional Access Policies
 
-Identity Protection uses Microsoft's threat intelligence to detect risky sign-ins and users.
+Microsoft has deprecated the standalone Identity Protection risk policies UI — the legacy user risk and sign-in risk policies configured directly in ID Protection are retiring on **October 1, 2026**. Current Microsoft guidance is to build risk conditions directly into Conditional Access instead. This gives a single policy management surface, report-only testing before enforcement, and better sign-in log diagnostics showing exactly which risk policy applied to a given sign-in.
 
-### 7.1 — Configure User Risk Policy
+> **Note:** Don't combine user risk and sign-in risk conditions in the same policy — Microsoft recommends creating separate policies for each, as below.
 
-1. Entra portal → **Security** → **Protect** → **ID Protection**
-2. Click **Protect** → **User risk policy** (or navigate under Policies)
-3. **Users:** All users, exclude `Break Glass Emergency Access`
-4. **Conditions:** User risk: **High**
-5. **Access:** Allow access, require password change
-6. **Enforce policy:** On
-7. Save
+### 7.1 — CA05: Require Risk Remediation for High User Risk
 
-### 7.2 — Configure Sign-in Risk Policy
+1. Entra portal → **Security** → **Protect** → **Conditional Access** → **Policies** → **+ New policy**
+2. **Name:** `CA05 — Require Remediation for High User Risk`
+3. **Assignments → Users:**
+   - Include: **All users**
+   - Exclude: **Users and groups** → `Break Glass Emergency Access`
+4. **Target resources → Include:** **All resources** (formerly "All cloud apps")
+5. **Conditions → User risk:**
+   - Configure: **Yes**
+   - Risk level: **High**
+6. **Grant:**
+   - Select **Grant access**
+   - Check **Require risk remediation** (this auto-selects **Require authentication strength**)
+   - Authentication strength: **Multifactor authentication**
+7. **Session:** Sign-in frequency → **Every time** (auto-applied and mandatory for risk-based policies)
+8. **Enable policy:** **Report-only** to start
+9. Click **Create**
 
-1. Click **Sign-in risk policy**
-2. **Users:** All users, exclude `Break Glass Emergency Access`
-3. **Conditions:** Sign-in risk: **Medium and above**
-4. **Access:** Allow access, require multifactor authentication
-5. **Enforce policy:** On
-6. Save
+### 7.2 — CA06: Require MFA for Medium/High Sign-In Risk
 
-📸 **Screenshot to capture:** Identity Protection policies page. Save as `screenshots/phase-01/07-identity-protection.png`.
+1. Click **+ New policy**
+2. **Name:** `CA06 — Require MFA for Medium and High Sign-In Risk`
+3. **Assignments → Users:**
+   - Include: **All users**
+   - Exclude: `Break Glass Emergency Access`
+4. **Target resources → Include:** **All resources**
+5. **Conditions → Sign-in risk:**
+   - Configure: **Yes**
+   - Risk level: **High and Medium**
+6. **Grant:**
+   - Select **Grant access**
+   - **Require authentication strength** → **Multifactor authentication**
+7. **Session:** Sign-in frequency → **Every time**
+8. **Enable policy:** **Report-only** to start
+9. Click **Create**
+
+### 7.3 — Validate, Then Enforce
+
+1. Let both policies run in report-only for a few sign-ins (or trigger a test via the Insights and Reporting workbook)
+2. Entra portal → **Conditional Access** → **Insights and reporting** → confirm CA05 and CA06 show expected report-only matches
+3. Flip both **CA05** and **CA06** from **Report-only** to **On**
+
+📸 **Screenshot to capture:** Conditional Access Policies page showing CA05 and CA06 alongside CA01–CA04. Save as `screenshots/phase-01/07-risk-based-ca-policies.png`.
 
 ---
 
@@ -420,9 +446,9 @@ Now that testing confirms the policies work:
 - [ ] Break-glass emergency access account configured with Global Admin role
 - [ ] Break-glass password stored offline (physical vault or paper copy)
 - [ ] Two named locations created (Trusted US, Blocked High-Risk Countries)
-- [ ] Four Conditional Access policies created and tested
+- [ ] Four Conditional Access policies created and tested (CA01–CA04)
 - [ ] PIM configured with just-in-time elevation for Sarah Admin
-- [ ] Identity Protection policies enabled (user risk + sign-in risk)
+- [ ] CA05 and CA06 risk-based Conditional Access policies created and enforced
 - [ ] Three Azure Policy baseline assignments configured
 - [ ] Policy compliance scan completed (initial state captured)
 - [ ] Test sign-in as Emma User completed successfully
@@ -438,7 +464,7 @@ Now that testing confirms the policies work:
 Establish the Zero Trust identity layer and governance baseline for the Contoso AI Labs environment before any AI workloads are deployed, following the principle that identity is the primary security perimeter in cloud architectures — and that policy enforcement is what keeps that perimeter intact over time.
 
 ### Approach
-[Describe your reasoning for the group structure, why break-glass matters, why report-only mode was used first, how PIM enables least-privilege operations, and why policy-as-guardrails matters at the identity layer.]
+[Describe your reasoning for the group structure, why break-glass matters, why report-only mode was used first, how PIM enables least-privilege operations, why risk-based Conditional Access was built directly rather than through the legacy Identity Protection UI, and why policy-as-guardrails matters at the identity layer.]
 
 ### Controls Implemented
 - Role-based access control via three security groups
@@ -446,7 +472,7 @@ Establish the Zero Trust identity layer and governance baseline for the Contoso 
 - Legacy authentication blocked (eliminates ~30% of common attack surface)
 - Geographic access restrictions blocking known high-risk regions
 - Just-in-time privileged access via PIM with approval workflow
-- Risk-based Conditional Access via Identity Protection
+- Risk-based Conditional Access policies (CA05, CA06) built on ID Protection signals, ahead of the legacy risk policies' October 2026 retirement
 - Azure Policy guardrails preventing common misconfigurations at creation time
 
 ### Frameworks Applied
