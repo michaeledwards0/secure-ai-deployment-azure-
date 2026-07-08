@@ -392,7 +392,7 @@ Directly protects your future Azure OpenAI deployment.
 1. Definitions → search: `Azure AI Services resources should restrict network access`
 2. Click the policy → **Assign**
 3. **Scope:** Your subscription
-4. **Assignment name:** `Deny Public Access on Cognitive Services`
+4. **Assignment name:** `Deny Public Access on Azure AI Services`
 5. **Parameters → Effect:** `Deny`
 6. Click **Review + create** → **Create**
 
