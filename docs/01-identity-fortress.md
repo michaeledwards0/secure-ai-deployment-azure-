@@ -418,12 +418,21 @@ Directly protects your future Azure OpenAI deployment.
 5. Complete MFA setup with your phone
 6. Sign in successfully
 
-### 9.2 — Review Conditional Access Insights
+### 9.2 — Review Sign-In Logs
+
+> **Note:** The **Insights and reporting** workbook (Conditional Access → Insights and reporting) requires a Log Analytics workspace with Entra diagnostic settings streaming into it — infrastructure that doesn't exist until Phase 5. Visiting it now returns a 401 "You don't have access" error regardless of role; this isn't a permissions problem, it's a missing data pipe. Use **Sign-in logs** instead — it reads the same underlying data with no workspace dependency.
 
 1. Back in your admin session
-2. Entra portal → **Protection** → **Conditional Access** → **Insights and reporting**
-3. Review the report-only impact — you should see the MFA policy would have applied to Emma's sign-in
-4. This confirms the policy is working correctly
+2. Entra portal → **Monitoring** → **Sign-in logs**
+3. Find Emma's sign-in (filter by user if needed)
+4. Click into the sign-in → open the **Conditional Access** tab on the detail pane to see every policy evaluated and its result (Success, Failure, Not applied, or Report-only would-have-applied)
+5. Also check the **Authentication requirement** and **Conditional Access** columns in the grid view (or export to CSV):
+   - **Authentication requirement: Multifactor authentication** confirms MFA was required for that sign-in
+   - **Conditional Access: Success** (not `reportOnlySuccess`) confirms the policy is actively enforcing, not just logging in report-only mode
+6. This confirms CA01 (and any other enforced policy) is working correctly
+
+> **Once Phase 5's Log Analytics workspace exists:** add a diagnostic setting on Microsoft Entra ID sending `SignInLogs` and `AuditLogs` to that workspace, and the Insights and reporting workbook comes online — giving trend charts and per-policy impact summaries on top of the same raw data.
+
 
 ### 9.3 — Turn On Report-Only Policies
 
