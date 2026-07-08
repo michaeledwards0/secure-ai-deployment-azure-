@@ -360,7 +360,7 @@ A common attack pattern is not "hacker breaks in" — it's "authorized admin mak
 Prevents any storage account (which our AI workload will use) from being publicly exposed.
 
 1. Azure Portal → search **"Policy"** → click it
-2. Left sidebar → **Definitions**
+2. Left sidebar → **Authoring** → **Definitions**
 3. Search: `Storage accounts should restrict network access`
 4. Click the policy definition
 5. Click **Assign**
