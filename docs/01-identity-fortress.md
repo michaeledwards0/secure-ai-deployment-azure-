@@ -109,7 +109,8 @@ Create three test users mapping to each group. These simulate the identity types
 - **Add group:** `AI-Users`
 - Click **Create**
 
-<img width="975" height="422" alt="image" src="https://github.com/user-attachments/assets/69ce47db-e61d-45c7-a216-6f3c5ff2d35c" />
+<img width="1189" height="388" alt="image" src="https://github.com/user-attachments/assets/14715a4f-9437-40c5-b83f-d0a068e75c1f" />
+
 
 
 ---
@@ -146,7 +147,8 @@ In a real environment, this account would be:
 
 We'll set up the Sentinel monitoring alert in Phase 5.
 
-<img width="975" height="635" alt="image" src="https://github.com/user-attachments/assets/a8fcc378-58cc-45ee-aa56-61a81eae0fc6" />
+<img width="907" height="106" alt="image" src="https://github.com/user-attachments/assets/c2d7204f-0beb-4866-8e24-c8e8d8d25a98" />
+
 .
 
 ---
@@ -176,7 +178,8 @@ Named locations let Conditional Access make decisions based on where a sign-in o
    - Belarus
 4. Click **Create**
 
-<img width="975" height="491" alt="image" src="https://github.com/user-attachments/assets/fd505103-06e0-44b5-be1c-6f39e4b816a9" />
+<img width="1282" height="401" alt="image" src="https://github.com/user-attachments/assets/26962d18-a958-4e50-977d-d6015842c72a" />
+
 
 
 ---
@@ -250,7 +253,8 @@ Admin accounts should re-authenticate more often than regular users.
 6. **Enable policy:** **Report-only**
 7. Click **Create**
 
-<img width="975" height="524" alt="image" src="https://github.com/user-attachments/assets/bc5041c7-2fc7-4035-b4e9-64769045f576" />
+<img width="1370" height="730" alt="image" src="https://github.com/user-attachments/assets/efe01727-7e8a-40e1-bf22-412f0a59a2c4" />
+
 
 ---
 
@@ -294,7 +298,8 @@ PIM enables just-in-time (JIT) elevation for admin roles. Instead of users being
 
 Click **Update**
 
-<img width="975" height="558" alt="image" src="https://github.com/user-attachments/assets/47fcc024-55b4-4a7b-a938-9ab46653b343" />
+<img width="1004" height="418" alt="image" src="https://github.com/user-attachments/assets/b74bb234-08e3-43d4-bffd-f604273fea1e" />
+
 
 
 ---
@@ -348,7 +353,8 @@ Microsoft has deprecated the standalone Identity Protection risk policies UI —
 2. Entra portal → **Conditional Access** → **Insights and reporting** → confirm CA05 and CA06 show expected report-only matches
 3. Flip both **CA05** and **CA06** from **Report-only** to **On**
 
-<img width="975" height="647" alt="image" src="https://github.com/user-attachments/assets/5f630b88-62a6-4e61-a8b5-abcfc0e9e865" />
+<img width="1309" height="719" alt="image" src="https://github.com/user-attachments/assets/5a375f37-5a56-4ed7-b36e-6406697a2be3" />
+
 
 
 ---
@@ -409,7 +415,8 @@ Directly protects your future Azure OpenAI deployment.
 3. Wait 15-30 minutes for initial compliance scan to complete
 4. Navigate to **Compliance** → your subscription should show initial compliance state
 
-<img width="975" height="542" alt="image" src="https://github.com/user-attachments/assets/dafeff47-1577-4b1c-b027-92815632c459" />
+<img width="1354" height="535" alt="image" src="https://github.com/user-attachments/assets/ec9e90d2-a110-4fa6-a798-a26f067b9a1b" />
+
 
 
 ---
@@ -451,7 +458,7 @@ Now that testing confirms the policies work:
 4. Save
 5. Do the same for **CA04 — Require Sign-In Every 4 Hours for AI Admins**
 
-<img width="975" height="173" alt="image" src="https://github.com/user-attachments/assets/78b75c36-52f5-4a9e-8443-450655a53e0f" />
+<img width="1806" height="375" alt="image" src="https://github.com/user-attachments/assets/1fcceb6f-e039-414d-83b9-5be1e612295c" />
 
 
 ---
