@@ -30,7 +30,7 @@ We'll build role-based groups that map to real job functions in an AI-consuming 
 
 ### 1.1 — Navigate to Groups
 
-1. Sign in to **[entra.microsoft.com](https://entra.microsoft.com)** with your admin account (`michaeledwards@memanagementconsultingllc.onmicrosoft.com`)
+1. Sign in to **[entra.microsoft.com](https://entra.microsoft.com)** with your admin account 
 2. Left sidebar → **Groups** → **All groups**
 3. Click **+ New group**
 
