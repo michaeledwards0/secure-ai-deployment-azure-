@@ -484,15 +484,13 @@ Now that testing confirms the policies work:
 
 ## Case Study Writeup — Phase 1
 
-*This section belongs at the end of the Phase 1 doc after execution. Write it once complete.*
-
 ### Objective
 Establish the Zero Trust identity layer and governance baseline for the Contoso AI Labs environment before any AI workloads are deployed, following the principle that identity is the primary security perimeter in cloud architectures — and that policy enforcement is what keeps that perimeter intact over time.
 
 ### Approach
-[User groups were structured around job function (Admin, Developer, End User) to enforce least privilege from the start — each role only has the access its function requires. A break-glass account was configured as a Global Admin fallback for emergencies, excluded from all Conditional Access policies so it always works if other authentication paths fail, and monitored for any sign-in activity since usage outside a true emergency should be treated as a serious alert.
+User groups were structured around job function (Admin, Developer, End User) to enforce least privilege from the start — each role only has the access its function requires. A break-glass account was configured as a Global Admin fallback for emergencies, excluded from all Conditional Access policies so it always works if other authentication paths fail, and monitored for any sign-in activity since usage outside a true emergency should be treated as a serious alert.
 Conditional Access policies were tested in report-only mode before enforcement. This let me validate that each policy would apply to the correct users and sign-ins without risking a lockout and flipping to enforced only after confirming expected behavior in the sign-in logs.
-PIM was applied to the AI-Admins group to enable just-in-time access instead of standing privilege. Rather than holding an admin role permanently, eligible users activate it only when needed, for a limited window, with MFA and approval required. This directly reduces the blast radius of two of the most common identity attack paths: compromised credentials and privilege escalation — a compromised account with no standing privilege has nothing to steal.]
+PIM was applied to the AI-Admins group to enable just-in-time access instead of standing privilege. Rather than holding an admin role permanently, eligible users activate it only when needed, for a limited window, with MFA and approval required. This directly reduces the blast radius of two of the most common identity attack paths: compromised credentials and privilege escalation — a compromised account with no standing privilege has nothing to steal.
 
 ### Controls Implemented
 - Role-based access control via three security groups
@@ -510,10 +508,10 @@ PIM was applied to the AI-Admins group to enable just-in-time access instead of 
 - Microsoft Cloud Adoption Framework — Governance disciplines
 
 ### Lessons Learned
-[Privileged Identity Management proved essential for protecting against two of the most common identity attack paths: privilege escalation and compromised credentials. By requiring just-in-time activation instead of standing access, there's no permanent admin session sitting idle for an attacker to hijack.
+Privileged Identity Management proved essential for protecting against two of the most common identity attack paths: privilege escalation and compromised credentials. By requiring just-in-time activation instead of standing access, there's no permanent admin session sitting idle for an attacker to hijack.
 Establishing security groups and role-based access control early was foundational to building a least-privilege environment — every subsequent decision, from Conditional Access scoping to PIM eligibility, depended on having clean, function-based groups already in place.
 Policy isn't policy unless it's enforced. A control that exists only as a written rule or a report-only log entry provides visibility, not protection and the value only materializes once it's actively blocking or requiring action.
-Identity controls and governance policy solve two different problems: identity controls stop unauthorized people from getting in, while Azure Policy stops authorized people from making costly mistakes. Both are necessary, and neither is a substitute for the other.]
+Identity controls and governance policy solve two different problems: identity controls stop unauthorized people from getting in, while Azure Policy stops authorized people from making costly mistakes. Both are necessary, and neither is a substitute for the other.
 
 ---
 
