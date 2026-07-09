@@ -9,7 +9,7 @@
 
 ## Overview
 
-Before any AI workload existed in this environment, the identity layer had to be established — in Zero Trust architecture, identity is the perimeter. This phase builds role-based access control, a monitored break-glass account, Conditional Access (including risk-based policies), just-in-time privileged access via PIM, and a governance baseline via Azure Policy — defending against the two most common identity attack paths: **compromised credentials** and **privilege escalation**.
+Before any AI workload existed in this environment, the identity layer had to be established in Zero Trust architecture, identity is the perimeter. This phase builds role-based access control, a monitored break-glass account, Conditional Access (including risk-based policies), just-in-time privileged access via PIM, and a governance baseline via Azure Policy — defending against the two most common identity attack paths: **compromised credentials** and **privilege escalation**.
 
 **Environment:** Personal Azure tenant | **Duration:** ~3-4 hours | **Standard:** SC-500 blueprint, NIST 800-207 (Zero Trust)
 
@@ -115,15 +115,15 @@ We'll build role-based groups that map to real job functions in an AI-consuming 
 **2.1 — Navigate to Users:** Left sidebar → **Users** → **All users** → **+ New user** → **Create new user**
 
 **2.2 — User A: AI Admin**
-- UPN: `sarah.admin@memanagementconsultingllc.onmicrosoft.com` | Display name: `Sarah Admin (Test)`
+- UPN: `sarah.admin@contosoailabs.onmicrosoft.com` | Display name: `Sarah Admin (Test)`
 - Job title: `Cloud Security Engineer` | Department: `Security` | Group: `AI-Admins`
 
 **2.3 — User B: AI Developer**
-- UPN: `david.dev@memanagementconsultingllc.onmicrosoft.com` | Display name: `David Dev (Test)`
+- UPN: `david.dev@contosoailabs.onmicrosoft.com` | Display name: `David Dev (Test)`
 - Job title: `AI Engineer` | Department: `Engineering` | Group: `AI-Developers`
 
 **2.4 — User C: AI End User**
-- UPN: `emma.user@memanagementconsultingllc.onmicrosoft.com` | Display name: `Emma User (Test)`
+- UPN: `emma.user@contosoailabs.onmicrosoft.com` | Display name: `Emma User (Test)`
 - Job title: `Business Analyst` | Department: `Operations` | Group: `AI-Users`
 
 ### Section 3: Configure the Break-Glass Account
@@ -131,7 +131,7 @@ We'll build role-based groups that map to real job functions in an AI-consuming 
 Break-glass accounts are emergency access accounts used only when all other authentication methods fail. They must be excluded from Conditional Access, protected with a strong offline-stored password, monitored for any usage, and never used for daily work.
 
 **3.1 — Create the Account**
-- UPN: `breakglass@memanagementconsultingllc.onmicrosoft.com` | Display name: `Break Glass Emergency Access`
+- UPN: `breakglass@contosoailabs.onmicrosoft.com` | Display name: `Break Glass Emergency Access`
 - Password: 20+ characters, stored in a physical vault or offline password manager — not your regular manager
 - Job title: `Emergency Access — Do Not Use`
 - Assign role: **Global Administrator**
@@ -227,7 +227,7 @@ Policy → Assignments → confirm all three appear with correct scope. Wait 15-
 ### Section 9: Testing & Validation
 
 **9.1 — Test as Emma User**
-Sign in as `emma.user@...` in a private browser window; MFA prompt should appear (or report-only log entry created).
+Sign in as `emma.user@contosoailabs.onmicrosoft.com` in a private browser window; MFA prompt should appear (or report-only log entry created).
 
 **9.2 — Review Sign-In Logs**
 > The Insights and reporting workbook requires a Log Analytics workspace (built in Phase 5) — it will 401 until then regardless of role. Use **Sign-in logs** instead.
