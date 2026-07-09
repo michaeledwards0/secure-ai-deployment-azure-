@@ -79,7 +79,7 @@ This repository documents the full engagement — from policy authoring through 
 
 | Phase | Focus Area | Status |
 |:---:|---|:---:|
-| **[Phase 1](./docs/01-identity-fortress.md)** | Identity Fortress — Entra ID, Conditional Access, PIM, Azure Policy (baseline) | 🟡 In Progress |
+| **[Phase 1](./docs/01-identity-fortress.md)** | Identity Fortress — Entra ID, Conditional Access, PIM, Azure Policy (baseline) | 🟢 Complete |
 | **[Phase 2](./docs/02-network-architecture.md)** | Network Architecture — VNets, Private Endpoints, NSGs, Bastion | ⚪ Pending |
 | **[Phase 3](./docs/03-openai-deployment.md)** | Azure OpenAI Deployment — Managed Identity, CMK, Content Filters | ⚪ Pending |
 | **[Phase 4](./docs/04-governance-defender.md)** | Governance & Defender for Cloud — Azure Policy, Workload Protection | ⚪ Pending |
