@@ -9,7 +9,7 @@
 
 ## Overview
 
-Before any AI workload existed in this environment, the identity layer had to be established in Zero Trust architecture, identity is the perimeter. This phase builds role-based access control, a monitored break-glass account, Conditional Access (including risk-based policies), just-in-time privileged access via PIM, and a governance baseline via Azure Policy — defending against the two most common identity attack paths: **compromised credentials** and **privilege escalation**.
+Before any AI workload existed in this environment, the identity layer had to be established — in Zero Trust architecture, identity is the perimeter. This phase builds role-based access control, a monitored break-glass account, Conditional Access (including risk-based policies), just-in-time privileged access via PIM, and a governance baseline via Azure Policy — defending against the two most common identity attack paths: **compromised credentials** and **privilege escalation**.
 
 **Environment:** Personal Azure tenant | **Duration:** ~3-4 hours | **Standard:** SC-500 blueprint, NIST 800-207 (Zero Trust)
 
@@ -31,6 +31,8 @@ Risk-based Conditional Access (CA05, CA06) was built directly into the Condition
 
 Azure Policy was assigned last in this phase to make the distinction between identity and governance explicit: identity controls (Conditional Access, PIM) stop unauthorized people from getting in, while Azure Policy stops authorized people from making costly configuration mistakes — like exposing a storage account to the public internet. Neither layer substitutes for the other.
 
+A Management Group was introduced above the subscription specifically to demonstrate policy inheritance. This lab runs in a single subscription, so a Management Group isn't structurally necessary here — but in a real organization with separate Dev/Test/Prod subscriptions, policies assigned at the Management Group level inherit down to every subscription beneath it automatically, rather than being reassigned per subscription. Building it here, even with only one subscription underneath, shows the pattern the same way it would need to work at enterprise scale.
+
 ### Controls Implemented
 - Role-based access control via three security groups (AI-Admins, AI-Developers, AI-Users)
 - MFA enforcement for all users except break-glass
@@ -39,6 +41,7 @@ Azure Policy was assigned last in this phase to make the distinction between ide
 - Just-in-time privileged access via PIM with approval workflow
 - Risk-based Conditional Access policies (CA05, CA06), built ahead of the legacy Identity Protection risk policies' October 2026 retirement
 - Azure Policy guardrails preventing common misconfigurations at resource creation time
+- Management Group established above the subscription, with governance policy reassigned at that scope to demonstrate inheritance patterns used in multi-subscription environments
 
 ### Frameworks Applied
 - NIST 800-207 (Zero Trust Architecture)
@@ -80,7 +83,7 @@ In Phase 2 we'll build the network layer that will house the AI workload — hub
 ---
 
 <details>
-<summary><strong> Full Execution Guide (click to expand)</strong> — step-by-step build instructions and completion checklist</summary>
+<summary><strong>📋 Full Execution Guide (click to expand)</strong> — step-by-step build instructions and completion checklist</summary>
 
 <br>
 
@@ -115,15 +118,15 @@ We'll build role-based groups that map to real job functions in an AI-consuming 
 **2.1 — Navigate to Users:** Left sidebar → **Users** → **All users** → **+ New user** → **Create new user**
 
 **2.2 — User A: AI Admin**
-- UPN: `sarah.admin@contosoailabs.onmicrosoft.com` | Display name: `Sarah Admin (Test)`
+- UPN: `sarah.admin@memanagementconsultingllc.onmicrosoft.com` | Display name: `Sarah Admin (Test)`
 - Job title: `Cloud Security Engineer` | Department: `Security` | Group: `AI-Admins`
 
 **2.3 — User B: AI Developer**
-- UPN: `david.dev@contosoailabs.onmicrosoft.com` | Display name: `David Dev (Test)`
+- UPN: `david.dev@memanagementconsultingllc.onmicrosoft.com` | Display name: `David Dev (Test)`
 - Job title: `AI Engineer` | Department: `Engineering` | Group: `AI-Developers`
 
 **2.4 — User C: AI End User**
-- UPN: `emma.user@contosoailabs.onmicrosoft.com` | Display name: `Emma User (Test)`
+- UPN: `emma.user@memanagementconsultingllc.onmicrosoft.com` | Display name: `Emma User (Test)`
 - Job title: `Business Analyst` | Department: `Operations` | Group: `AI-Users`
 
 ### Section 3: Configure the Break-Glass Account
@@ -131,7 +134,7 @@ We'll build role-based groups that map to real job functions in an AI-consuming 
 Break-glass accounts are emergency access accounts used only when all other authentication methods fail. They must be excluded from Conditional Access, protected with a strong offline-stored password, monitored for any usage, and never used for daily work.
 
 **3.1 — Create the Account**
-- UPN: `breakglass@contosoailabs.onmicrosoft.com` | Display name: `Break Glass Emergency Access`
+- UPN: `breakglass@memanagementconsultingllc.onmicrosoft.com` | Display name: `Break Glass Emergency Access`
 - Password: 20+ characters, stored in a physical vault or offline password manager — not your regular manager
 - Job title: `Emergency Access — Do Not Use`
 - Assign role: **Global Administrator**
@@ -224,10 +227,35 @@ Identity controls prevent unauthorized people from acting; Azure Policy prevents
 **8.5 — Verify**
 Policy → Assignments → confirm all three appear with correct scope. Wait 15-30 min for initial compliance scan, then check Compliance blade.
 
+### Section 8.6: Establish a Management Group and Demonstrate Policy Inheritance
+
+This lab runs in a single subscription, so a Management Group isn't structurally required — but building one demonstrates the pattern used in real multi-subscription environments, where policy assigned once at the Management Group level inherits automatically to every subscription beneath it.
+
+1. Azure Portal → search **Management groups** → **+ Add management group**
+2. **Management group ID:** `mg-contoso-ai-labs`
+3. **Management group display name:** `Contoso AI Labs`
+4. Click **Save**
+5. Go to **Tenant root group** (or wherever your management group hierarchy starts) → find `mg-contoso-ai-labs` → click **+ Add subscription**
+6. Select your subscription → **Save** to move it under the new management group
+
+**Reassign one governance policy at the Management Group level**, to demonstrate inheritance without duplicating every Phase 1 policy:
+
+7. Policy → **Definitions** → search: `Storage accounts should restrict network access` (the same policy assigned at subscription scope earlier in Section 8.2)
+8. Click the policy → **Assign**
+9. **Scope:** `mg-contoso-ai-labs` (the Management Group, not the subscription)
+10. **Assignment name:** `Deny Public Storage Accounts — MG Level`
+11. **Parameters → Effect:** `Deny`
+12. **Review + create** → **Create**
+13. Verify inheritance: Policy → **Compliance** → filter to your subscription → confirm the policy assignment shows as inherited from the Management Group scope, not the subscription scope
+
+> **Why only one policy was reassigned here, not all three:** The goal is to demonstrate the inheritance mechanism clearly, not to duplicate the entire governance baseline at two scopes simultaneously. In a real environment, you'd decide deliberately which policies belong at the Management Group level (organization-wide non-negotiables) versus the subscription or resource group level (environment-specific rules) — reassigning everything to the top would remove that flexibility.
+
+📸 **Screenshot to capture:** Management group hierarchy showing the subscription nested under `mg-contoso-ai-labs`, and the Compliance view showing the policy inherited from the Management Group scope. Save as `screenshots/phase-01/10-management-group-inheritance.png`.
+
 ### Section 9: Testing & Validation
 
 **9.1 — Test as Emma User**
-Sign in as `emma.user@contosoailabs.onmicrosoft.com` in a private browser window; MFA prompt should appear (or report-only log entry created).
+Sign in as `emma.user@...` in a private browser window; MFA prompt should appear (or report-only log entry created).
 
 **9.2 — Review Sign-In Logs**
 > The Insights and reporting workbook requires a Log Analytics workspace (built in Phase 5) — it will 401 until then regardless of role. Use **Sign-in logs** instead.
@@ -248,6 +276,8 @@ Conditional Access → Policies → change CA01 and CA04 from Report-only to **O
 - [ ] PIM configured with just-in-time elevation for Sarah Admin
 - [ ] CA05 and CA06 risk-based Conditional Access policies created and enforced
 - [ ] Three Azure Policy baseline assignments configured
+- [ ] Management Group (`mg-contoso-ai-labs`) created with subscription nested underneath
+- [ ] One governance policy reassigned at the Management Group level and confirmed inherited via Compliance view
 - [ ] Policy compliance scan completed
 - [ ] Test sign-in as Emma User completed successfully
 - [ ] All screenshots captured
