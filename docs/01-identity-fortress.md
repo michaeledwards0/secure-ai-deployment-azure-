@@ -60,7 +60,9 @@ A Management Group was introduced above the subscription specifically to demonst
 | Core Conditional Access policies | CA01–CA04 enforcing MFA, blocking legacy auth, blocking high-risk geographies, and requiring frequent re-auth for admins | ![CA policies](https://github.com/user-attachments/assets/efe01727-7e8a-40e1-bf22-412f0a59a2c4) |
 | Just-in-time access | Sarah Admin configured as eligible (not permanently assigned) for Global Reader via PIM | ![PIM](https://github.com/user-attachments/assets/b74bb234-08e3-43d4-bffd-f604273fea1e) |
 | Risk-based Conditional Access | CA05/CA06 built directly in Conditional Access, ahead of the legacy Identity Protection UI's retirement | ![Risk-based CA](https://github.com/user-attachments/assets/5a375f37-5a56-4ed7-b36e-6406697a2be3) |
-| Governance baseline | Three Azure Policy assignments enforced across the subscription, protecting against public exposure and enforcing managed identity use | ![Policy baseline](https://github.com/user-attachments/assets/ec9e90d2-a110-4fa6-a798-a26f067b9a1b) |
+| Governance baseline (Subscripton Scope) | Three Azure Policy assignments enforced across the subscription, protecting against public exposure and enforcing managed identity use | ![Policy baseline](https://github.com/user-attachments/assets/ec9e90d2-a110-4fa6-a798-a26f067b9a1b) |
+| Management group created | `mg-contoso-ai-labs` created and subscription moved under it, demonstrating the hierarchy pattern used in real multi-subscription environments | ![Management group](https://github.com/user-attachments/assets/a6c461c1-8107-48a6-a4aa-821190df1656) |
+| Policy inheritance confirmed | Storage policy assigned only at the Management Group level, confirmed present on the subscription's compliance view without a duplicate subscription-scope assignment — proving inheritance | ![Policy inheritance](https://github.com/user-attachments/assets/458f0e49-09ff-4b20-b3f6-4a05433981a6) |
 | Enforcement confirmed live | CA01 and CA04 flipped from report-only to enforced, validated against real sign-in log results | ![Policy enforced](https://github.com/user-attachments/assets/1fcceb6f-e039-414d-83b9-5be1e612295c) |
 
 ### Lessons Learned
@@ -211,25 +213,50 @@ Microsoft is retiring the standalone Identity Protection risk policies UI on **O
 **7.3 — Validate, Then Enforce**
 Let both run in report-only, confirm expected matches in sign-in logs, then flip both to **On**.
 
-### Section 8: Establish Governance Baseline with Azure Policy
+## Section 8: Establish a Governance Baseline with Azure Policy
 
-Identity controls prevent unauthorized people from acting; Azure Policy prevents even authorized people from creating misconfigured resources.
+Identity controls prevent unauthorized *people* from acting. Azure Policy prevents even authorized people from creating *misconfigured resources*. We'll assign two foundational policies now at subscription scope — and hold a third back deliberately, to demonstrate Management Group-level inheritance later in this section.
 
-**8.2 — Storage Accounts Should Restrict Network Access**
-- Definitions → search policy → Assign → Scope: subscription → Effect: **Deny**
+### 8.1 — Why This Matters
 
-**8.3 — App Service Apps Should Use Managed Identity**
-- Assign → Effect: **AuditIfNotExists** (start with audit; deny mode could break legitimate deployments while still learning)
+A common attack pattern is not "hacker breaks in" — it's "authorized admin makes a mistake and exposes a resource to the public internet." Azure Policy is the guardrail that stops those mistakes before they become breaches. In real cloud security roles, policy authoring is a core responsibility.
 
-**8.4 — Azure AI Services Resources Should Restrict Network Access**
-- Assign → Effect: **Deny** (directly protects the future Azure OpenAI deployment)
+### 8.2 — Assign Built-In Policy: App Service Apps Should Use Managed Identity
 
-**8.5 — Verify**
-Policy → Assignments → confirm all three appear with correct scope. Wait 15-30 min for initial compliance scan, then check Compliance blade.
+Enforces that resources use managed identities instead of stored credentials.
 
-### Section 8.6: Establish a Management Group and Demonstrate Policy Inheritance
+1. Azure Portal → search **"Policy"** → click it
+2. Left sidebar → **Authoring** → **Definitions**
+3. Search: `App Service apps should use managed identity`
+4. Click the policy → **Assign**
+5. **Scope:** Your subscription
+6. **Assignment name:** `Require Managed Identity`
+7. **Parameters → Effect:** `AuditIfNotExists` (start with audit to see impact)
+8. Click **Review + create** → **Create**
 
-This lab runs in a single subscription, so a Management Group isn't structurally required — but building one demonstrates the pattern used in real multi-subscription environments, where policy assigned once at the Management Group level inherits automatically to every subscription beneath it.
+> **Why start with Audit:** Deny mode could break legitimate deployments while you're still learning. Audit surfaces violations without blocking, then you can flip to Deny once confident.
+
+### 8.3 — Assign Built-In Policy: Azure AI Services Resources Should Restrict Network Access
+
+Directly protects your future Azure OpenAI deployment.
+
+1. Definitions → search: `Azure AI Services resources should restrict network access`
+2. Click the policy → **Assign**
+3. **Scope:** Your subscription
+4. **Assignment name:** `Deny Public Access on Azure AI Services`
+5. **Parameters → Effect:** `Deny`
+6. Click **Review + create** → **Create**
+
+### 8.4 — Verify Policy Assignments
+
+1. Policy → **Assignments**
+2. Confirm both policies appear with correct scope
+3. Wait 15-30 minutes for initial compliance scan to complete
+4. Navigate to **Compliance** → your subscription should show initial compliance state
+
+### 8.5 — Establish a Management Group and Demonstrate Policy Inheritance
+
+This lab runs in a single subscription, so a Management Group isn't structurally required — but building one demonstrates the pattern used in real multi-subscription environments, where a policy is assigned once at the Management Group level and inherits automatically to every subscription beneath it. Rather than duplicating a policy already assigned at subscription scope, this section assigns **"Storage accounts should restrict network access"** — held back from Section 8.2 specifically for this purpose — at the Management Group level instead, to cleanly demonstrate inheritance without redundant enforcement.
 
 1. Azure Portal → search **Management groups** → **+ Add management group**
 2. **Management group ID:** `mg-contoso-ai-labs`
@@ -238,19 +265,26 @@ This lab runs in a single subscription, so a Management Group isn't structurally
 5. Go to **Tenant root group** (or wherever your management group hierarchy starts) → find `mg-contoso-ai-labs` → click **+ Add subscription**
 6. Select your subscription → **Save** to move it under the new management group
 
-**Reassign one governance policy at the Management Group level**, to demonstrate inheritance without duplicating every Phase 1 policy:
+**Assign the held-back policy at the Management Group level:**
 
-7. Policy → **Definitions** → search: `Storage accounts should restrict network access` (the same policy assigned at subscription scope earlier in Section 8.2)
+7. Policy → **Definitions** → search: `Storage accounts should restrict network access`
 8. Click the policy → **Assign**
 9. **Scope:** `mg-contoso-ai-labs` (the Management Group, not the subscription)
-10. **Assignment name:** `Deny Public Storage Accounts — MG Level`
+10. **Assignment name:** `Deny Public Storage Accounts`
 11. **Parameters → Effect:** `Deny`
-12. **Review + create** → **Create**
-13. Verify inheritance: Policy → **Compliance** → filter to your subscription → confirm the policy assignment shows as inherited from the Management Group scope, not the subscription scope
+12. Click **Review + create** → **Create**
 
-> **Why only one policy was reassigned here, not all three:** The goal is to demonstrate the inheritance mechanism clearly, not to duplicate the entire governance baseline at two scopes simultaneously. In a real environment, you'd decide deliberately which policies belong at the Management Group level (organization-wide non-negotiables) versus the subscription or resource group level (environment-specific rules) — reassigning everything to the top would remove that flexibility.
+**Verify inheritance:**
 
-📸 **Screenshot to capture:** Management group hierarchy showing the subscription nested under `mg-contoso-ai-labs`, and the Compliance view showing the policy inherited from the Management Group scope. Save as `screenshots/phase-01/10-management-group-inheritance.png`.
+13. Navigate to your subscription's **Policy → Compliance** page
+14. Confirm the storage policy now appears here too — even though it was never assigned directly at the subscription — proving it inherited down from the Management Group
+
+
+### 8.6 — Verify Full Policy Assignments
+
+1. Policy → **Assignments**, filtered to show **all scopes** (subscription and management group)
+2. Confirm three total policies are visible: two at subscription scope (Sections 8.2–8.3) and one inherited from Management Group scope (Section 8.5)
+
 
 ### Section 9: Testing & Validation
 
@@ -275,9 +309,9 @@ Conditional Access → Policies → change CA01 and CA04 from Report-only to **O
 - [ ] Four Conditional Access policies created and tested (CA01–CA04)
 - [ ] PIM configured with just-in-time elevation for Sarah Admin
 - [ ] CA05 and CA06 risk-based Conditional Access policies created and enforced
-- [ ] Three Azure Policy baseline assignments configured
+- [ ] Two Azure Policy baseline assignments configured 
 - [ ] Management Group (`mg-contoso-ai-labs`) created with subscription nested underneath
-- [ ] One governance policy reassigned at the Management Group level and confirmed inherited via Compliance view
+- [ ] One governance policy assigned at the Management Group level and confirmed inherited via Compliance view
 - [ ] Policy compliance scan completed
 - [ ] Test sign-in as Emma User completed successfully
 - [ ] All screenshots captured
