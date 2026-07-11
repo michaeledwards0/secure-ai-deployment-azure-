@@ -60,14 +60,14 @@ Build a segmented, least-exposure, and observable network foundation for the Con
 
 | Control | What it proves | Screenshot |
 |---|---|---|
-| Hub VNet created | `vnet-hub` provisioned with AzureBastionSubnet and snet-shared-services | ![Hub VNet](<img width="1121" height="253" alt="image" src="https://github.com/user-attachments/assets/c4d7378e-d0be-47b9-bd6d-d8a4cb9aad40" />) |
-| Spoke VNet created | `vnet-spoke-ai` provisioned with snet-ai-workload and snet-private-endpoints, correctly sized at 10.1.0.0/16 | ![Spoke VNet](<img width="1119" height="418" alt="image" src="https://github.com/user-attachments/assets/925ad0c6-80c9-4bc5-bab5-f23d33b6c1c5" />) |
-| VNet peering connected | Bidirectional peering between hub and spoke confirmed Connected on both sides | ![Peering](<img width="1298" height="392" alt="image" src="https://github.com/user-attachments/assets/c7f3f9f1-9475-48d4-a634-6d3beb125aaf" />) |
-| NSGs configured | All three NSGs created and associated to their respective subnets | ![NSGs](<img width="1248" height="436" alt="image" src="https://github.com/user-attachments/assets/9fe7da23-68c0-43e9-890d-f265c498b38d" />) |
-| NSG flow logs enabled | Flow logging active across all three NSGs, writing to dedicated storage | ![Flow logs](<img width="1248" height="436" alt="image" src="https://github.com/user-attachments/assets/219c4443-2b7b-4fa3-b08f-23b98260cd99" />) |
-| Azure Bastion deployed | Bastion host running in the hub, providing zero-public-IP administrative access | ![Bastion](<img width="958" height="413" alt="image" src="https://github.com/user-attachments/assets/ebb5c4ef-ac1e-4035-b1f4-c2669e73ffcc" />) |
-| Private DNS zone established | `privatelink.openai.azure.com` created and linked to the spoke VNet, staged for Phase 3 | ![Private DNS zone](<img width="1684" height="376" alt="image" src="https://github.com/user-attachments/assets/86f0deee-79f1-41e4-963a-239ada16441b" />) |
-| Deny public IP policy | Policy assignment denying public IP creation at the resource group, with a durable name-based exclusion for Bastion | ![Policy](<img width="1568" height="576" alt="image" src="https://github.com/user-attachments/assets/a43d70eb-141d-40c0-8f10-eb663211bccc" />) |
+| Hub VNet created | `vnet-hub` provisioned with AzureBastionSubnet and snet-shared-services | ![Hub VNet](https://github.com/user-attachments/assets/c4d7378e-d0be-47b9-bd6d-d8a4cb9aad40) |
+| Spoke VNet created | `vnet-spoke-ai` provisioned with snet-ai-workload and snet-private-endpoints, correctly sized at 10.1.0.0/16 | ![Spoke VNet](https://github.com/user-attachments/assets/925ad0c6-80c9-4bc5-bab5-f23d33b6c1c5) |
+| VNet peering connected | Bidirectional peering between hub and spoke confirmed Connected on both sides | ![Peering](https://github.com/user-attachments/assets/c7f3f9f1-9475-48d4-a634-6d3beb125aaf) |
+| NSGs configured | All three NSGs created and associated to their respective subnets | ![NSGs](https://github.com/user-attachments/assets/9fe7da23-68c0-43e9-890d-f265c498b38d) |
+| NSG flow logs enabled | Flow logging active across all three NSGs, writing to dedicated storage | ![Flow logs](https://github.com/user-attachments/assets/219c4443-2b7b-4fa3-b08f-23b98260cd99) |
+| Azure Bastion deployed | Bastion host running in the hub, providing zero-public-IP administrative access | ![Bastion](https://github.com/user-attachments/assets/ebb5c4ef-ac1e-4035-b1f4-c2669e73ffcc) |
+| Private DNS zone established | `privatelink.openai.azure.com` created and linked to the spoke VNet, staged for Phase 3 | ![Private DNS zone](https://github.com/user-attachments/assets/86f0deee-79f1-41e4-963a-239ada16441b) |
+| Deny public IP policy | Policy assignment denying public IP creation at the resource group, with a durable name-based exclusion for Bastion | ![Policy](https://github.com/user-attachments/assets/a43d70eb-141d-40c0-8f10-eb663211bccc) |
 
 ### Lessons Learned
 *[Fill in after execution.]*
