@@ -40,7 +40,7 @@ Deploy the Azure AI services (Azure OpenAI) workload into the isolated network f
 ### Controls Implemented
 - Azure AI services resource deployed with public network access disabled, reachable only via the Phase 2 private endpoint
 - System-assigned managed identity for Key Vault authentication
-- Customer-managed keys for encryption at rest, stored in a dedicated Key Vault with access policies scoped to the managed identity only
+- Customer-managed keys for encryption at rest, stored in a dedicated Key Vault using the RBAC permission model, with data-plane access scoped separately to the admin account (key management) and the AI service's managed identity (wrap/unwrap operations only)
 - Content filtering configured at the model deployment level
 - Azure RBAC role assignments connecting Phase 1's identity groups to real permissions on the AI resource
 - Private DNS zone group linking the private endpoint to the zone created in Phase 2
@@ -63,7 +63,7 @@ Deploy the Azure AI services (Azure OpenAI) workload into the isolated network f
 *[Screenshots added after execution — see capture list in the Execution Guide below.]*
 
 ### Lessons Learned
-*[Fill in after execution.]*
+*[Fill in after execution — the customer-managed key setup is a strong candidate here: configuring CMK on a fully network-locked Key Vault required working through four distinct access boundaries in sequence (network exception, personal RBAC for key management, client IP for the portal's key picker, and a separate managed-identity RBAC grant that the portal's own UI claimed would happen automatically but didn't). Worth reflecting on what this revealed about Key Vault's layered data-plane vs. management-plane access model, and why "the portal says it will handle this" shouldn't be taken as guaranteed without verification.]*
 
 ---
 
@@ -128,16 +128,60 @@ With the workload deployed, Phase 4 layers Defender for Cloud workload protectio
 
 ### Section 2b: Configure Customer-Managed Keys (Post-Deployment)
 
-Unlike the creation wizard, which has no Encryption tab for this resource type, CMK is configured directly on the deployed resource.
+Unlike the creation wizard, which has no Encryption tab for this resource type, CMK is configured directly on the deployed resource. Because `kv-contoso-ai` has public network access fully disabled (Phase 3, Section 1), this step involves working through several distinct access boundaries in sequence — network, two separate RBAC grants, and client IP — not a single Save action. Each layer below produced its own distinct portal error before being resolved; they are documented in the order actually encountered.
 
-1. Open the deployed `ai-contoso-openai` resource
-2. Left sidebar → **Encryption**
-3. Select **Customer-managed keys**
-4. **Key Vault:** `kv-contoso-ai` → select the key (create one in the vault first if none exists yet)
-5. Before saving, grant the resource's managed identity access on the vault: `kv-contoso-ai` → **Access control (IAM)** → **+ Add role assignment** → **Key Vault Crypto Service Encryption User** → assign to the `ai-contoso-openai` resource's system-assigned managed identity
-6. Return to the Encryption blade and **Save**
+**1. Temporarily open the vault's network for CMK provisioning**
 
-📸 **Screenshot to capture:** Encryption blade showing customer-managed key configuration pointing to `kv-contoso-ai`. Save as `screenshots/phase-03/02b-cmk-configured.png`.
+The vault's "Disabled" public access state blocks even Azure's own internal CMK provisioning call — the "Allow trusted Microsoft services" exception only takes effect when the vault is in "Enabled from selected networks" mode, not "Disabled."
+
+1. `kv-contoso-ai` → **Settings → Networking**
+2. Change **Public network access** from **Disabled** to **Enabled from selected virtual networks and IP addresses**
+3. Leave the virtual network / IP allow list empty for now — this does not reopen the vault to arbitrary public traffic
+4. Under **Exceptions**, set **Allow trusted Microsoft services to bypass this firewall** to **Yes**
+5. **Save** and allow a couple of minutes to propagate
+
+**2. Grant yourself Key Vault data-plane access**
+
+Being Contributor/Owner on the resource group does not grant access to keys/secrets inside a Key Vault using the RBAC permission model — data-plane access is separate and must be granted explicitly.
+
+1. `kv-contoso-ai` → **Access control (IAM)** → **+ Add role assignment**
+2. **Role:** `Key Vault Crypto Officer`
+3. **Assign access to:** your own admin account
+4. **Review + assign**, then wait 2-5 minutes for propagation
+
+**3. Allow your own client IP through the firewall**
+
+The "Select a key" picker queries the vault directly from your browser, separate from the trusted-services exception above — it needs your current public IP explicitly allowed.
+
+1. `kv-contoso-ai` → **Settings → Networking** → **Firewall**
+2. Add your current client IP (the portal typically offers an auto-detect/add option)
+3. **Save**, allow a minute to propagate
+
+**4. Create the key**
+
+No key exists in the vault yet at this point.
+
+1. Back on `ai-contoso-openai` → **Encryption** → **Select from Key Vault** → **Select a KeyVault and Key for encryption**
+2. **Key vault:** `kv-contoso-ai` → **Create new key**
+3. **Options:** Generate | **Name:** `key-contoso-ai-cmk` | **Key type:** RSA | **RSA key size:** 2048
+4. Leave activation/expiration dates unset for now; optionally configure a **key rotation policy** (e.g., 12 months) as a good practice detail even without executing a rotation
+5. **Create**, then select the new key and its version back on the "Select a key" screen
+
+**5. Grant the managed identity access, and save**
+
+The Encryption blade's own UI states the resource's managed identity "will be granted access to the selected key vault" automatically — in practice this did not hold, and the Save attempt failed with an access-forbidden error referencing wrap/unwrap key operations. The grant has to be made manually:
+
+1. `kv-contoso-ai` → **Access control (IAM)** → **+ Add role assignment**
+2. **Role:** `Key Vault Crypto Service Encryption User`
+3. **Assign access to:** **Managed identity** → **+ Select members** → identity type **Azure AI services** (may display as **Cognitive Services**) → select `ai-contoso-openai`
+4. **Review + assign**, wait 2-5 minutes for propagation
+5. Return to `ai-contoso-openai` → **Encryption** (the vault/key selection should still be populated) → **Save** — this should now succeed
+
+**6. Decide the vault's steady-state network posture**
+
+CMK operations (rotation, re-wrap) are infrequent once initial setup is complete. Consider reverting `kv-contoso-ai`'s Public network access back to **Disabled** now that CMK is configured, removing your own client IP from the firewall allow list, and reopening this same sequence only when a future key rotation is needed — keeping the vault's default posture as closed as possible rather than permanently leaving the "Selected networks" exception open.
+
+📸 **Screenshot to capture:** Encryption blade showing customer-managed key configuration successfully saved, pointing to `kv-contoso-ai` / `key-contoso-ai-cmk`. Save as `screenshots/phase-03/02b-cmk-configured.png`. Consider also capturing the IAM role assignments list on `kv-contoso-ai` showing both roles granted (yourself: Key Vault Crypto Officer; managed identity: Key Vault Crypto Service Encryption User), since this is strong evidence of the layered access model in action.
 
 ### Section 3: Deploy a Model and Configure Content Filters
 
@@ -170,7 +214,13 @@ Unlike the creation wizard, which has no Encryption tab for this resource type, 
 - [ ] Key Vault deployed with public access disabled, connected via private endpoint
 - [ ] Azure AI services resource deployed with public network access disabled
 - [ ] System-assigned managed identity enabled on the AI resource
-- [ ] Customer-managed key encryption configured, using Key Vault
+- [ ] Key Vault firewall temporarily opened to Selected networks with trusted-services exception enabled
+- [ ] Key Vault Crypto Officer role granted to admin account for key management access
+- [ ] Client IP added to Key Vault firewall for key picker access
+- [ ] Encryption key created in Key Vault (RSA 2048)
+- [ ] Key Vault Crypto Service Encryption User role granted to the AI service's managed identity
+- [ ] Customer-managed key encryption configured and saved successfully
+- [ ] Key Vault network posture reverted to a tighter steady state post-configuration
 - [ ] Model deployed with content filtering applied
 - [ ] RBAC roles assigned: AI-Admins → Contributor (resource group), AI-Developers → Cognitive Services OpenAI Contributor, AI-Users → Cognitive Services OpenAI User
 - [ ] Private DNS resolution verified from inside the VNet
