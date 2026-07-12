@@ -13,6 +13,8 @@ With identity (Phase 1) and network isolation (Phase 2) in place, Phase 3 deploy
 
 **Environment:** Personal Azure tenant (`contosoailabs.onmicrosoft.com`) | **Duration:** ~2-3 hours | **Standard:** SC-500 blueprint
 
+**Business context:** the deployed model is framed as Contoso AI Labs' internal engineering assistant — intended for internal knowledge queries by employees — rather than a customer-facing product. This gives the security controls in this phase and the detections in Phase 5 a realistic purpose to defend, without requiring a custom application layer; all interaction happens through the Azure AI Foundry playground or direct API calls, consistent with the Path 1 scope decided at the start of this project.
+
 > **Naming note:** Microsoft has rebranded the product family from "Cognitive Services" to **Azure AI services.** However, the built-in RBAC role names have not been renamed to match — roles like `Cognitive Services OpenAI Contributor` and `Cognitive Services OpenAI User` still carry the legacy name in the role catalog itself. This doc refers to the resource as Azure AI services throughout, but role assignment screenshots will show the legacy role names, since that's what Azure currently exposes.
 
 ### Design Rationale
@@ -78,7 +80,7 @@ With the workload deployed, Phase 4 layers Defender for Cloud workload protectio
 
 <br>
 
-**Prerequisites:** Phase 1 and Phase 2 complete, `snet-private-endpoints` and `privatelink.openai.azure.com` DNS zone already exist
+**Prerequisites:** Phase 1 and Phase 2 complete, `snet-private-endpoints` subnet and the `privatelink.openai.azure.com` DNS zone already exist. The Key Vault's DNS zone (`privatelink.vaultcore.azure.net`) is created during this phase, not Phase 2.
 
 ### Section 1: Deploy the Key Vault
 
@@ -87,8 +89,16 @@ With the workload deployed, Phase 4 layers Defender for Cloud workload protectio
    - Name: `kv-contoso-ai` (must be globally unique — append a suffix if needed)
    - Region: consistent with prior phases
    - Pricing tier: Standard
-2. **Networking tab:** Disable public access → connect via **Private endpoint** in `snet-private-endpoints`
-3. Create
+2. **Networking tab:** Uncheck **Enable public access**
+3. Under **Private endpoint**, click **+ Create a private endpoint** and configure:
+   - **Name:** `pe-kv-contoso-ai`
+   - **Region:** consistent with prior phases
+   - **Target sub-resource:** `vault`
+   - **Virtual network:** `vnet-spoke-ai`
+   - **Subnet:** `snet-private-endpoints`
+   - **Private DNS integration:** enable it. Unlike the AI service, no DNS zone was pre-created for Key Vault in Phase 2 — the correct zone name is **`privatelink.vaultcore.azure.net`**, and the portal will offer to auto-create and link it to `vnet-spoke-ai` as part of this step. Let it.
+   - **OK** to add the private endpoint, then continue back on the Key Vault creation wizard
+4. **Review + create** → **Create**
 
 📸 **Screenshot to capture:** Key Vault overview showing public access disabled and private endpoint connected. Save as `screenshots/phase-03/01-keyvault-deployed.png`.
 
