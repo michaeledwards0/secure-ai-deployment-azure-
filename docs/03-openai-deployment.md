@@ -120,11 +120,24 @@ With the workload deployed, Phase 4 layers Defender for Cloud workload protectio
      - **Integrate with private DNS zone:** Yes
      - **Private DNS Zone:** accept the auto-suggested **`(New) cognitiveservices`** zone (creates and links `privatelink.cognitiveservices.azure.com` to `vnet-spoke-ai`)
    - **OK**, then continue back on the Azure AI services creation wizard
-4. **Identity tab:** Enable **System-assigned managed identity**
-5. **Encryption tab:** Select **Customer-managed keys**, point to `kv-contoso-ai`, and grant the resource's managed identity **Key Vault Crypto Service Encryption User** on the vault
-6. Review + create
+4. **Identity tab:** Set **System assigned managed identity → Status: On**. Leave User assigned managed identity empty — system-assigned is what the rest of this project relies on.
+5. **Tags tab:** skip, or add tags consistent with your other resources
+6. **Review + create** → **Create** — note there is no dedicated Encryption tab during creation for this unified resource type; customer-managed key configuration happens after deployment (Section 2b below)
 
 📸 **Screenshot to capture:** Azure AI services resource overview showing public network access disabled and managed identity enabled. Save as `screenshots/phase-03/02-ai-service-deployed.png`.
+
+### Section 2b: Configure Customer-Managed Keys (Post-Deployment)
+
+Unlike the creation wizard, which has no Encryption tab for this resource type, CMK is configured directly on the deployed resource.
+
+1. Open the deployed `ai-contoso-openai` resource
+2. Left sidebar → **Encryption**
+3. Select **Customer-managed keys**
+4. **Key Vault:** `kv-contoso-ai` → select the key (create one in the vault first if none exists yet)
+5. Before saving, grant the resource's managed identity access on the vault: `kv-contoso-ai` → **Access control (IAM)** → **+ Add role assignment** → **Key Vault Crypto Service Encryption User** → assign to the `ai-contoso-openai` resource's system-assigned managed identity
+6. Return to the Encryption blade and **Save**
+
+📸 **Screenshot to capture:** Encryption blade showing customer-managed key configuration pointing to `kv-contoso-ai`. Save as `screenshots/phase-03/02b-cmk-configured.png`.
 
 ### Section 3: Deploy a Model and Configure Content Filters
 
