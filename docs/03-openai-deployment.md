@@ -38,12 +38,13 @@ Deploy the Azure AI services (Azure OpenAI) workload into the isolated network f
 *[Fill in after execution — describe your reasoning for the CMK key rotation policy, why specific content filter severities were chosen, and any tradeoffs between model deployment capacity and budget constraints.]*
 
 ### Controls Implemented
-- Azure AI services resource deployed with public network access disabled, reachable only via the Phase 2 private endpoint
+- Azure AI services resource deployed with public network access disabled, reachable only via a private endpoint deployed into the Phase 2 `snet-private-endpoints` subnet
 - System-assigned managed identity for Key Vault authentication
 - Customer-managed keys for encryption at rest, stored in a dedicated Key Vault using the RBAC permission model, with data-plane access scoped separately to the admin account (key management) and the AI service's managed identity (wrap/unwrap operations only)
 - Content filtering configured at the model deployment level
 - Azure RBAC role assignments connecting Phase 1's identity groups to real permissions on the AI resource
-- Private DNS zone group linking the private endpoint to the zone created in Phase 2
+- Private DNS zone groups created and linked to the spoke VNet, one per resource (`privatelink.vaultcore.azure.net` for Key Vault, `privatelink.cognitiveservices.azure.com` for Azure AI services)
+- A disposable, out-of-architecture scaffolding resource used solely to satisfy the Foundry Project workspace layer, deliberately excluded from CMK, private endpoints, and the project's security narrative — kept isolated in its own resource group with a scoped policy exemption, distinct from the actual protected workload
 
 ### RBAC Role Assignments
 
@@ -63,7 +64,9 @@ Deploy the Azure AI services (Azure OpenAI) workload into the isolated network f
 *[Screenshots added after execution — see capture list in the Execution Guide below.]*
 
 ### Lessons Learned
-*[Fill in after execution — the customer-managed key setup is a strong candidate here: configuring CMK on a fully network-locked Key Vault required working through four distinct access boundaries in sequence (network exception, personal RBAC for key management, client IP for the portal's key picker, and a separate managed-identity RBAC grant that the portal's own UI claimed would happen automatically but didn't). Worth reflecting on what this revealed about Key Vault's layered data-plane vs. management-plane access model, and why "the portal says it will handle this" shouldn't be taken as guaranteed without verification.]*
+*[Fill in after execution — the customer-managed key setup is a strong candidate here: configuring CMK on a fully network-locked Key Vault required working through four distinct access boundaries in sequence (network exception, personal RBAC for key management, client IP for the portal's key picker, and a separate managed-identity RBAC grant that the portal's own UI claimed would happen automatically but didn't). Worth reflecting on what this revealed about Key Vault's layered data-plane vs. management-plane access model, and why "the portal says it will handle this" shouldn't be taken as guaranteed without verification.
+
+A second strong candidate: discovering that creating an Azure AI services resource does not automatically create a Foundry Project — the two are separate layers, and the Project-creation UI has no way to attach to an existing resource at creation time, only after. Combined with the subscription-scoped deny-public-access policy blocking the auto-provisioned scaffolding resource regardless of resource group, this required a deliberate, scoped policy exemption on a dedicated resource group — a good demonstration of understanding that Deny policies block writes into non-compliant states rather than forcing ongoing compliance, and that a narrow, reversible exception is preferable to weakening a policy's overall enforcement.]*
 
 ---
 
@@ -183,14 +186,52 @@ CMK operations (rotation, re-wrap) are infrequent once initial setup is complete
 
 📸 **Screenshot to capture:** Encryption blade showing customer-managed key configuration successfully saved, pointing to `kv-contoso-ai` / `key-contoso-ai-cmk`. Save as `screenshots/phase-03/02b-cmk-configured.png`. Consider also capturing the IAM role assignments list on `kv-contoso-ai` showing both roles granted (yourself: Key Vault Crypto Officer; managed identity: Key Vault Crypto Service Encryption User), since this is strong evidence of the layered access model in action.
 
-### Section 3: Deploy a Model and Configure Content Filters
+### Section 3: Create a Foundry Project and Deploy a Model
 
-1. Open **Azure AI Foundry** (or Azure OpenAI Studio) for the resource
+**Important context before starting:** creating `ai-contoso-openai` as a standalone Azure AI services resource (Section 2) does **not** automatically create a Foundry Project. A Project is a separate workspace layer on top of the resource — it's what actually exposes the Playground, model deployment UI, agents, and evaluations. The resource holds the infrastructure (keys, networking, identity); the Project is where you interact with it. This distinction isn't obvious from the resource's own Overview page, which has no direct link into Foundry.
+
+**3.1 — Attempt to create a Project, expect a policy conflict**
+
+1. Go to **ai.azure.com** → **Management Center** (or the "+ New project" option if surfaced directly)
+2. **Project name:** `contoso-ai-project`
+3. Under **Advanced options**, set **Resource group** to `rg-secure-ai-prod` and confirm the region matches your other resources
+4. In the **Microsoft Foundry resource** field, this dialog does **not** support attaching an existing resource — it always tries to provision a new one. Typing the name of your existing `ai-contoso-openai` will only return a naming-collision error, not an option to reuse it.
+5. Give the auto-provisioned resource a distinct name (e.g., `foundry-contoso-ai-workspace`) and click **Create**
+6. **Expect this to fail** with an error like *"Resource 'foundry-contoso-ai-workspace' was disallowed by Deny Public Access on Azure AI Services."* This is Phase 3's own governance policy correctly blocking a new, publicly-accessible AI resource — the policy is assigned at **subscription scope**, so it applies regardless of which resource group the Project creation flow targets, not just `rg-secure-ai-prod`.
+
+**3.2 — Grant a scoped policy exemption for the scaffolding resource**
+
+Rather than weakening the policy itself, exclude only this specific resource group from it — Deny policies block resources from being *created into* a non-compliant state; they don't force a resource to remain non-compliant once it exists, which is what makes this approach safe.
+
+1. Azure Portal → **Policy** → **Assignments** → open **"Deny Public Access on Azure AI Services"**
+2. Add a **Policy exemption** (or edit the assignment's exclusions) scoped to a dedicated resource group — e.g., `rg-foundry-scaffolding` — created specifically to hold this disposable Project-supporting resource, kept separate from `rg-secure-ai-prod`
+3. Save, then retry the Project creation dialog from 3.1, targeting `rg-foundry-scaffolding` this time — it should now succeed
+
+**3.3 — Lock down the scaffolding resource's networking (without CMK or a private endpoint)**
+
+The auto-created resource (`foundry-contoso-ai-workspace`) is disposable plumbing that exists only so the Foundry workspace has something to anchor to — it is **not** part of the secured architecture and is never referenced as a protected asset in this project's case study. It doesn't need CMK or a private endpoint in `snet-private-endpoints`; that level of hardening is reserved for `ai-contoso-openai`, the actual workload. It does still need enough network configuration to not sit fully open and to avoid re-triggering the same access issues seen with Key Vault's CMK setup:
+
+1. Open the new resource → **Networking**
+2. Set **Public network access** to **Selected networks and private endpoints**, leaving the network rules list empty (not adding any VNets or IPs)
+3. Enable **"Allow Azure services on the trusted services list to bypass this firewall"**
+4. Save — avoid "Disabled," which (per the Key Vault CMK experience in Section 2b) can block Microsoft's own internal service calls even with a trusted-services exception configured, since that exception only takes effect in "Selected networks" mode
+
+**3.4 — Connect the real resource to the Project**
+
+1. Inside the newly created Project, go to **Management Center** → look for **Connected resources** (or **Connections**)
+2. **+ New connection** → add `ai-contoso-openai` as a connected Azure AI services resource
+3. Confirm the Project's model deployment interface can now target `ai-contoso-openai` specifically, rather than only the scaffolding resource
+
+📸 **Screenshot to capture:** the policy exemption scoped to `rg-foundry-scaffolding`, and the Project's Connected resources list showing `ai-contoso-openai` attached. Save as `screenshots/phase-03/03a-foundry-project-connected.png`.
+
+**3.5 — Deploy the model and configure content filters**
+
+1. In the Project, confirm the active/target resource is `ai-contoso-openai`
 2. **Deployments** → **+ Create new deployment** → choose a model (e.g., `gpt-4o-mini` for cost control)
 3. Under **Content filter**, apply the default or a custom filter — do not deploy with filtering disabled
 4. Deploy
 
-📸 **Screenshot to capture:** Model deployment page showing the content filter applied. Save as `screenshots/phase-03/03-model-deployment-content-filter.png`.
+📸 **Screenshot to capture:** Model deployment page showing the content filter applied, confirmed against `ai-contoso-openai`. Save as `screenshots/phase-03/03-model-deployment-content-filter.png`.
 
 ### Section 4: Assign Azure RBAC Roles
 
@@ -221,6 +262,9 @@ CMK operations (rotation, re-wrap) are infrequent once initial setup is complete
 - [ ] Key Vault Crypto Service Encryption User role granted to the AI service's managed identity
 - [ ] Customer-managed key encryption configured and saved successfully
 - [ ] Key Vault network posture reverted to a tighter steady state post-configuration
+- [ ] Foundry Project created, with a scoped policy exemption for the disposable scaffolding resource group
+- [ ] Scaffolding resource networking locked to Selected networks + trusted services (no CMK, no private endpoint — intentionally out of scope)
+- [ ] `ai-contoso-openai` connected to the Foundry Project as a resource connection
 - [ ] Model deployed with content filtering applied
 - [ ] RBAC roles assigned: AI-Admins → Contributor (resource group), AI-Developers → Cognitive Services OpenAI Contributor, AI-Users → Cognitive Services OpenAI User
 - [ ] Private DNS resolution verified from inside the VNet
