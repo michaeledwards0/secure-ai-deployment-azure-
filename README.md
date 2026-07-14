@@ -80,8 +80,8 @@ This repository documents the full engagement — from policy authoring through 
 | Phase | Focus Area | Status |
 |:---:|---|:---:|
 | **[Phase 1](./docs/01-identity-fortress.md)** | Identity Fortress — Entra ID, Conditional Access, PIM, Azure Policy (baseline) | 🟢 Complete |
-| **[Phase 2](./docs/02-network-architecture.md)** | Network Architecture — VNets, Private Endpoints, NSGs, Bastion | ⚪ Pending |
-| **[Phase 3](./docs/03-openai-deployment.md)** | Azure OpenAI Deployment — Managed Identity, CMK, Content Filters | ⚪ Pending |
+| **[Phase 2](./docs/02-network-architecture.md)** | Network Architecture — VNets, Private Endpoints, NSGs, Bastion | 🟢 Complete |
+| **[Phase 3](./docs/03-openai-deployment.md)** | Azure OpenAI Deployment — Managed Identity, CMK, Content Filters | 🟢 Complete |
 | **[Phase 4](./docs/04-governance-defender.md)** | Governance & Defender for Cloud — Azure Policy, Workload Protection | ⚪ Pending |
 | **[Phase 5](./docs/05-detection-engineering.md)** | Detection Engineering — Sentinel Rules & Playbooks | ⚪ Pending |
 | **[Phase 6](./docs/06-red-team-findings.md)** | Red Team Validation — Attack Simulation & Findings | ⚪ Pending |
