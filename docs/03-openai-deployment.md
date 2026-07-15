@@ -72,7 +72,7 @@ On the model itself, the original plan was `gpt-4o-mini`, but it was retired by 
 | Model deployed with Guardrails | Full Guardrails configuration (Jailbreak, Indirect Prompt Injection, Content Harms, Protected Materials, PII) and model deployment page confirming deployment against `ai-contoso-openai` | <img width="1305" height="878" alt="image" src="https://github.com/user-attachments/assets/3e1b1ecf-92d5-493a-94d9-3cebd62873a3" /> |
 | RBAC role assignments | Access control (IAM) → Role assignments tab showing all three group-to-role mappings, AI-Admins as Eligible and the other two as Active | <img width="1328" height="782" alt="image" src="https://github.com/user-attachments/assets/03c12c8b-6e7a-4715-9902-c5ffe914cde8" /> |
 | PIM activation requirements | Contributor role's PIM settings page showing 4hr max activation, MFA, justification, ticket info, and approval required | <img width="936" height="896" alt="image" src="https://github.com/user-attachments/assets/defbc663-632d-435a-9d50-ce3e02b8d3ba" /> |
-| Test VM deployed | `vm-ai-workload-test` running in `snet-ai-workload` with no public IP | `screenshots/phase-03/05a-test-vm-deployed.png` |
+| Test VM deployed | `vm-ai-workload-test` running in `snet-ai-workload` with no public IP | <img width="1149" height="848" alt="image" src="https://github.com/user-attachments/assets/a03a160a-d742-4aae-8584-6ed95eea53da" /> |
 | Private DNS resolution verified | PowerShell output from inside the VNet resolving `ai-contoso-openai`'s endpoint to a private `10.1.1.0/24` address | `screenshots/phase-03/05-private-dns-resolution.png` |
 
 ### Lessons Learned
