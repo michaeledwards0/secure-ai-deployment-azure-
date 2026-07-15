@@ -76,7 +76,7 @@ On the model itself, the original plan was `gpt-4o-mini`, but it was retired by 
 | Private DNS resolution verified | PowerShell output from inside the VNet resolving `ai-contoso-openai`'s endpoint to a private `10.1.1.0/24` address | <img width="975" height="737" alt="image" src="https://github.com/user-attachments/assets/fd28092a-352e-4593-8afd-5674f6601d7b" /> |
 
 ### Lessons Learned
-*[Fill in after execution — the PIM-for-resources discovery is a strong candidate: extending Phase 1's PIM pattern to a resource-level Azure RBAC role surfaced that PIM for Azure resources lives in a completely separate part of the portal from a resource group's own IAM blade, requiring the resource group to be explicitly discovered and onboarded first. Also worth noting the fresh subscription's zero standing compute quota, which required a quota increase request before the first VM of the project — small and quickly approved, but a good example of a platform guardrail that has nothing to do with the architecture itself and shouldn't be mistaken for a configuration mistake.]*
+*A quick takeawy from this phase is doing a deep dive on why make a decision to use CMK instead of Microsoft default key management option.It allows for control over revocation and key rotation. Also, the importance of setting guardrails for your AI model and services upfront is essential. You need to ensure that company and user data is secure while using AI so setting guardrails against things like sensitive data leakage, setting content filters, and protecting against prompt injections. 
 
 ---
 
