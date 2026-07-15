@@ -61,7 +61,7 @@ A centralized Azure Firewall was seriously considered for the hub, since it's th
 | Deny public IP policy | Policy assignment denying public IP creation at the resource group, with a durable name-based exclusion for Bastion | ![Policy](https://github.com/user-attachments/assets/a43d70eb-141d-40c0-8f10-eb663211bccc) |
 
 ### Lessons Learned
-*[Fill in after execution — the CIDR overlap incident is a strong candidate here, alongside anything discovered during Bastion/NSG testing.]*
+*A key takeawy from this phase is learning the importance of devoloping a plan for your CIDR ranges for your Vnet ahaead of time. I ran into an error while setting the CIDR for the SpokeVnet due to IP address overlap.*
 
 ---
 
