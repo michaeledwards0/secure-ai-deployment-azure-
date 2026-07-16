@@ -1,272 +1,256 @@
 <div align="center">
 
 # Phase 2: Network Architecture & Isolation
-### Hub-Spoke Network Foundation for the AI Workload — Contoso AI Labs
+### Hub-Spoke Network Foundation for a Private Azure AI Workload
+
+**Contoso AI Labs | Microsoft Azure | Hub-Spoke | Private Networking | Zero Trust**
 
 </div>
 
 ---
 
-## Overview
+## Executive Summary
 
-With identity established in Phase 1, Phase 2 builds the network layer that will house the AI workload: a hub-spoke VNet topology with no public network exposure, administrative access exclusively through Azure Bastion, NSGs enforcing default-deny at every subnet boundary, and flow logs providing traffic observability from the moment the network exists.
+After establishing the identity perimeter in Phase 1, I designed and deployed the network foundation for the secure AI environment.
 
-**Environment:** Personal Azure tenant (`contosoailabs.onmicrosoft.com`) | **Duration:** ~2-3 hours | **Standard:** SC-500 blueprint, CIS Azure Foundations Benchmark v2.0 — Network Security
+This phase implemented a hub-spoke topology, dedicated subnets, subnet-level Network Security Groups, Azure Bastion, NSG flow logging, and Azure Policy controls that restrict public IP creation. The network was designed so the AI workload could operate without direct public exposure while preserving administrative access, observability, and room for future expansion.
+
+> **Outcome:** A segmented and observable Azure network was deployed with explicit trust boundaries, private administrative access, non-overlapping address spaces, and governance controls against accidental public exposure.
 
 ---
 
-## Case Study
+## Project Snapshot
 
-### Objective
-Build a segmented, least-exposure, and observable network foundation for the Contoso AI Labs environment prior to deploying any AI workload resources, ensuring no compute or service in this environment is reachable from the public internet, that administrative access requires no open inbound ports, and that traffic across every subnet boundary is logged.
+| Category | Details |
+|---|---|
+| **Platform** | Microsoft Azure |
+| **Primary focus** | Network segmentation, private access, traffic control, observability |
+| **Architecture** | Hub-spoke VNet topology |
+| **Key services** | Virtual Networks, VNet Peering, NSGs, Azure Bastion, Network Watcher, Azure Policy |
+| **Security concepts** | Micro-segmentation, least privilege, private administration, defense in depth |
+| **Threats addressed** | Public RDP/SSH exposure, lateral movement, misconfigured public IPs, unobserved network traffic |
+| **Framework alignment** | Microsoft Cloud Adoption Framework, CIS Azure Foundations, NIST 800-207 |
+| **Validation** | Peering state, NSG associations, flow-log configuration, policy assignment, Bastion deployment |
 
-### Approach
+---
 
-The network follows a hub-spoke topology rather than a single flat VNet, because a flat network means any compromised resource can potentially reach any other resource. The hub holds shared services — Azure Bastion today, potentially additional shared tooling or a firewall later — while the spoke holds only the AI workload itself. Peering between them is explicit and one-to-one, not transitive, so a future second spoke could connect into the same hub without any change to this one. This environment currently has a single workload, so a single spoke is the correct scope rather than a simplification of it — the value of hub-spoke isn't the number of spokes, it's that the boundary exists at all.
+## Security Challenge
 
-Subnet sizing followed the general pattern of allocating more address space at the VNet level and narrower ranges at the subnet level, sized to each subnet's actual purpose rather than uniformly. `AzureBastionSubnet` is fixed at a `/26` minimum by Microsoft's own requirement for the service — not a security choice I made — while `snet-shared-services` was sized with headroom for future shared tooling that doesn't exist yet. On the spoke side, `snet-private-endpoints` was deliberately sized larger than the two resources landing there in Phase 3 (Key Vault and Azure AI services), since private endpoints tend to accumulate as more services are added over time.
+The AI workload needed a network that prevented direct internet exposure without sacrificing administrative access or future scalability.
 
-The importance of a proper CIDR plan showed up directly during execution, not just in theory: the spoke VNet was initially created on the same `10.0.0.0/16` range as the hub, and Azure rejected the peering attempt with an explicit address-overlap error. This was a useful real-world confirmation of why non-overlapping address spaces are a hard requirement for peering, not just a best practice — two VNets can't be peered if Azure can't distinguish their address ranges from one another. The spoke was corrected to `10.1.0.0/16` before proceeding, and every subnet beneath it was resized to fit inside that corrected range.
+A flat VNet would have made segmentation weaker and future expansion harder. Public IPs on compute resources would have introduced unnecessary RDP/SSH exposure. Broad NSG rules would have increased lateral-movement risk, while the absence of flow logging would have made it difficult to verify whether the network behaved as designed.
 
-Azure Bastion was chosen over exposing RDP/SSH directly, because it allows administrative access to VMs within the network without ever opening those ports to the internet — authentication happens through the Azure portal, and the actual RDP/SSH session originates from inside the hub, not from a public source. Both `snet-ai-workload` and `snet-shared-services` allow inbound traffic from the Bastion subnet specifically, since Bastion is a shared jump host for the entire environment and doesn't know in advance which subnet will need administrative access on a given day; each destination subnet still enforces its own default-deny posture and only trusts that one narrow source.
+The design therefore had to provide:
 
-The NSG rules map directly to least privilege: every subnet starts fully denied by default, and only the specific inbound traffic required is explicitly allowed — Bastion-sourced administrative access on the compute subnets, or VNet-internal traffic only for the private endpoints subnet. Nothing is permitted by default; everything permitted was a deliberate, individually justified addition. Flow logs were enabled on all three NSGs at this stage, rather than waiting for Phase 5's Sentinel workspace, so that traffic visibility exists from the moment the network itself exists — a misconfigured rule is far more useful to catch through logged traffic than to discover later during an incident.
+- A clear boundary between shared services and workloads
+- Non-overlapping address spaces
+- Private administrative access
+- Default-deny subnet controls
+- Traffic visibility
+- Governance against accidental public IP creation
+- A path for future spokes and centralized services
 
-A centralized Azure Firewall was seriously considered for the hub, since it's the natural next step for egress filtering and threat intelligence-based blocking in a hub-spoke design, but it was deliberately scoped out for this phase due to cost structure rather than lack of awareness: Azure Firewall bills a fixed hourly fee for every hour it's deployed — starting around $0.395/hr on the Basic tier, roughly $288/month if left running continuously — regardless of whether it processes any traffic, which doesn't fit a $50/month lab budget as an always-on resource. Azure Bastion carries a similar always-on billing model with no pause state, which was managed operationally instead: leaving it running during active work sessions and deleting the resource between sessions, since a Deny-Public-IP policy exclusion scoped by resource path rather than an internal object ID allows the same public IP name to be recreated repeatedly without needing to update the policy each time.
+---
 
-### Controls Implemented
-- Hub-spoke VNet topology with explicit, non-transitive peering
-- Dedicated subnets for Bastion, shared services, and workload resources — no shared/general-purpose subnet
-- Network Security Groups applied at every subnet boundary, default-deny with explicit allow rules
-- NSG flow logs enabled across all three NSGs for network traffic observability, staged for Traffic Analytics once the Phase 5 Log Analytics workspace exists
-- Azure Bastion for zero-public-IP administrative access, operated on a deploy/delete cost discipline given its continuous billing model
-- Azure Policy assignment denying public IP creation across the subscription, with a name-based exclusion for the Bastion public IP
-- Single-spoke design deliberately scoped to the current workload, with the hub structured to support additional spokes without modification
+## Architecture
 
-### Frameworks Applied
-- Microsoft Cloud Adoption Framework — Hub-Spoke Network Topology
-- CIS Microsoft Azure Foundations Benchmark v2.0 — Section 6 (Networking)
-- NIST 800-207 (Zero Trust Architecture) — network micro-segmentation principle
+```mermaid
+flowchart LR
+    Internet((Internet))
 
-### Evidence
+    subgraph Hub["Hub VNet — 10.0.0.0/16"]
+        Bastion["Azure Bastion\nAzureBastionSubnet\n10.0.0.0/26"]
+        Shared["Shared Services Subnet\n10.0.1.0/24"]
+        NSGShared["NSG: nsg-shared-services"]
+    end
+
+    subgraph Spoke["AI Spoke VNet — 10.1.0.0/16"]
+        Workload["AI Workload Subnet\n10.1.0.0/24"]
+        PrivateEP["Private Endpoints Subnet\n10.1.1.0/24"]
+        NSGWorkload["NSG: nsg-ai-workload"]
+        NSGPE["NSG: nsg-private-endpoints"]
+    end
+
+    Storage["Flow Log Storage"]
+
+    Internet -->|TLS via Azure Portal| Bastion
+    Bastion -->|RDP/SSH from trusted subnet| Workload
+    Bastion -->|RDP/SSH from trusted subnet| Shared
+    Hub <-->|Bidirectional VNet Peering| Spoke
+    NSGWorkload --> Storage
+    NSGPE --> Storage
+    NSGShared --> Storage
+```
+
+---
+
+## IP Addressing Plan
+
+| Network | CIDR | Purpose |
+|---|---|---|
+| `vnet-hub` | `10.0.0.0/16` | Shared services and administrative access |
+| `AzureBastionSubnet` | `10.0.0.0/26` | Azure Bastion |
+| `snet-shared-services` | `10.0.1.0/24` | Future shared tooling |
+| `vnet-spoke-ai` | `10.1.0.0/16` | AI workload boundary |
+| `snet-ai-workload` | `10.1.0.0/24` | Compute and workload resources |
+| `snet-private-endpoints` | `10.1.1.0/24` | Private endpoints for Azure AI, Key Vault, and related services |
+
+---
+
+## What I Implemented
+
+### Hub-Spoke Topology
+
+The hub VNet contains shared infrastructure, while the spoke VNet contains the AI workload. The peering relationship is explicit and non-transitive, allowing future spokes to be added without flattening the environment.
+
+### Dedicated Subnets
+
+Each subnet has a defined purpose:
+
+- `AzureBastionSubnet` for managed administrative access
+- `snet-shared-services` for centralized tooling
+- `snet-ai-workload` for workload compute
+- `snet-private-endpoints` for private service access
+
+No general-purpose subnet was used.
+
+### Network Security Groups
+
+A dedicated NSG was assigned to each workload-related subnet.
+
+| NSG | Subnet | Primary Rule |
+|---|---|---|
+| `nsg-ai-workload` | `snet-ai-workload` | Allow RDP/SSH only from Azure Bastion subnet |
+| `nsg-private-endpoints` | `snet-private-endpoints` | Allow HTTPS from the trusted virtual network |
+| `nsg-shared-services` | `snet-shared-services` | Allow RDP/SSH only from Azure Bastion subnet |
+
+Default platform deny rules remained in place so access was granted only through explicit exceptions.
+
+### Azure Bastion
+
+Azure Bastion was deployed in the hub to provide browser-based RDP/SSH access without assigning public IPs to workload VMs.
+
+Because Bastion bills continuously and cannot be paused, the project uses a deploy/delete operating model during active lab work.
+
+### NSG Flow Logs
+
+Flow logging was enabled for the three workload-facing NSGs and directed to a dedicated storage account.
+
+Traffic Analytics was intentionally deferred until Phase 5, when the Log Analytics workspace and Sentinel environment are created.
+
+### Azure Policy
+
+A policy was assigned to deny public IP creation in the project resource group. The Bastion public IP was excluded by resource path so the same named resource could be recreated during later lab sessions without revising the policy assignment.
+
+---
+
+## Key Engineering Decisions and Tradeoffs
+
+| Decision | Rationale | Tradeoff |
+|---|---|---|
+| Use hub-spoke instead of a flat VNet | Creates explicit workload and shared-service boundaries | Adds peering and routing complexity |
+| Use one spoke | Matches the current single-workload scope | Does not demonstrate multi-spoke traffic flows yet |
+| Use non-overlapping `/16` VNet ranges | Required for peering and future network growth | Consumes more address space than the lab immediately needs |
+| Use dedicated `/24` workload subnets | Provides room for future resources and private endpoints | Larger than current resource count requires |
+| Use Bastion instead of public RDP/SSH | Removes direct VM exposure to the internet | Adds continuous hourly cost |
+| Use NSGs at each subnet | Limits lateral movement and supports micro-segmentation | Requires more rule management |
+| Enable flow logs before Sentinel | Preserves visibility from the start of the network lifecycle | Traffic Analytics remains unavailable until Phase 5 |
+| Omit Azure Firewall | Keeps the project within budget | No centralized egress filtering or threat-intelligence-based blocking |
+| Deny public IP creation with a Bastion exclusion | Prevents accidental public exposure while preserving required Bastion architecture | Requires careful exclusion scoping |
+
+---
+
+## Implementation Issue and Resolution
+
+During the first peering attempt, the spoke VNet was mistakenly created with the same `10.0.0.0/16` range as the hub.
+
+Azure rejected the peering because the address spaces overlapped.
+
+### Resolution
+
+- Hub retained `10.0.0.0/16`
+- Spoke was corrected to `10.1.0.0/16`
+- All spoke subnets were resized inside the corrected range
+- Peering was retried and completed successfully
+
+> **Lesson:** CIDR planning is an architectural dependency, not a cosmetic configuration step. Overlapping ranges can block peering, hybrid connectivity, and future network integration.
+
+---
+
+## Results and Validation
+
+| Result | Validation |
+|---|---|
+| Hub-spoke topology deployed | Both VNets were created with the intended subnets |
+| Address-space conflict resolved | Spoke moved to `10.1.0.0/16` and peering succeeded |
+| Bidirectional peering established | Both peering connections showed `Connected` |
+| Subnet boundaries enforced | Three NSGs were associated with their intended subnets |
+| Public VM administration avoided | Azure Bastion was deployed in the hub |
+| Traffic visibility enabled | NSG flow logs were configured for all three workload-facing NSGs |
+| Public IP sprawl prevented | Azure Policy denied public IP creation except for the Bastion exclusion |
+| Future observability path established | Flow logs were staged for Traffic Analytics and Sentinel integration in Phase 5 |
+
+---
+
+## Evidence
 
 | Control | What it proves | Screenshot |
 |---|---|---|
-| Hub VNet created | `vnet-hub` provisioned with AzureBastionSubnet and snet-shared-services | ![Hub VNet](https://github.com/user-attachments/assets/c4d7378e-d0be-47b9-bd6d-d8a4cb9aad40) |
-| Spoke VNet created | `vnet-spoke-ai` provisioned with snet-ai-workload and snet-private-endpoints, correctly sized at 10.1.0.0/16 | ![Spoke VNet](https://github.com/user-attachments/assets/925ad0c6-80c9-4bc5-bab5-f23d33b6c1c5) |
-| VNet peering connected | Bidirectional peering between hub and spoke confirmed Connected on both sides | ![Peering](https://github.com/user-attachments/assets/c7f3f9f1-9475-48d4-a634-6d3beb125aaf) |
-| NSGs configured | All three NSGs created and associated to their respective subnets | ![NSGs](https://github.com/user-attachments/assets/9fe7da23-68c0-43e9-890d-f265c498b38d) |
-| NSG flow logs enabled | Flow logging active across all three NSGs, writing to dedicated storage | ![Flow logs](https://github.com/user-attachments/assets/219c4443-2b7b-4fa3-b08f-23b98260cd99) |
-| Azure Bastion deployed | Bastion host running in the hub, providing zero-public-IP administrative access | ![Bastion](https://github.com/user-attachments/assets/ebb5c4ef-ac1e-4035-b1f4-c2669e73ffcc) |
-| Deny public IP policy | Policy assignment denying public IP creation at the resource group, with a durable name-based exclusion for Bastion | ![Policy](https://github.com/user-attachments/assets/a43d70eb-141d-40c0-8f10-eb663211bccc) |
-
-### Lessons Learned
-*A key takeawy from this phase is learning the importance of devoloping a plan for your CIDR ranges for your Vnet ahaead of time. I ran into an error while setting the CIDR for the SpokeVnet due to IP address overlap.*
+| Hub VNet created | Hub was provisioned with Bastion and shared-services subnets | ![Hub VNet](https://github.com/user-attachments/assets/c4d7378e-d0be-47b9-bd6d-d8a4cb9aad40) |
+| Spoke VNet created | AI spoke was provisioned with corrected `10.1.0.0/16` address space | ![Spoke VNet](https://github.com/user-attachments/assets/925ad0c6-80c9-4bc5-bab5-f23d33b6c1c5) |
+| VNet peering connected | Bidirectional hub-spoke peering reached Connected state | ![Peering](https://github.com/user-attachments/assets/c7f3f9f1-9475-48d4-a634-6d3beb125aaf) |
+| NSGs configured | All three NSGs were created and associated correctly | ![NSGs](https://github.com/user-attachments/assets/9fe7da23-68c0-43e9-890d-f265c498b38d) |
+| Flow logs enabled | Network traffic logging was enabled across all three NSGs | ![Flow logs](https://github.com/user-attachments/assets/219c4443-2b7b-4fa3-b08f-23b98260cd99) |
+| Bastion deployed | Administrative access was provided without public VM IPs | ![Bastion](https://github.com/user-attachments/assets/ebb5c4ef-ac1e-4035-b1f4-c2669e73ffcc) |
+| Public IP policy assigned | Public IP creation was denied with a scoped Bastion exclusion | ![Policy](https://github.com/user-attachments/assets/a43d70eb-141d-40c0-8f10-eb663211bccc) |
 
 ---
 
-## Next Phase
+## Framework Mapping
 
-➡️ **[Phase 3: Azure OpenAI Deployment](./03-openai-deployment.md)**
-
-With the network foundation in place, Phase 3 deploys Azure OpenAI into the spoke's private subnet, connected via private endpoint — no resource in this environment will have a public network path.
+| Framework | Application |
+|---|---|
+| **Microsoft Cloud Adoption Framework** | Hub-spoke topology, centralized shared services, scalable network boundaries |
+| **CIS Microsoft Azure Foundations** | NSGs, public exposure reduction, network logging, private administration |
+| **NIST 800-207 Zero Trust** | Explicit trust boundaries, least privilege, micro-segmentation, continuous visibility |
 
 ---
 
-<details>
-<summary><strong>📋 Full Execution Guide (click to expand)</strong> — step-by-step build instructions and completion checklist</summary>
+## Lessons Learned
 
-<br>
+### CIDR planning must happen before deployment
 
-**Duration:** ~2-3 hours
-**Prerequisites:** Phase 1 complete, `rg-secure-ai-prod` resource group created, region chosen and consistent with Phase 0's Service Health alert scope
+The overlapping VNet ranges caused a real deployment failure and reinforced why IP planning must account for peering, hybrid connectivity, and future growth before resources are created.
 
-### IP Addressing Plan
+### Segmentation is more valuable than resource count
 
-Decide this before creating anything — resizing VNets after resources exist is disruptive.
+A single-spoke architecture is still meaningful because the boundary between shared services and the workload already exists. Future workloads can be added without redesigning the original spoke.
 
-| VNet | CIDR | Purpose |
-|---|---|---|
-| Hub VNet (`vnet-hub`) | `10.0.0.0/16` | Shared services |
-| — AzureBastionSubnet | `10.0.0.0/26` | Azure Bastion (name is fixed, cannot be renamed) |
-| — snet-shared-services | `10.0.1.0/24` | Future shared tooling (jump resources, monitoring agents) |
-| Spoke VNet (`vnet-spoke-ai`) | `10.1.0.0/16` | AI workload |
-| — snet-ai-workload | `10.1.0.0/24` | Compute resources for the AI workload |
-| — snet-private-endpoints | `10.1.1.0/24` | Private endpoints for OpenAI, Key Vault, Storage (Phase 3+) |
+### Private administration still has a cost model
 
-### Section 1: Create the Hub VNet
+Azure Bastion improves security by eliminating public RDP/SSH exposure, but it introduces an always-on cost. Security architecture has to account for operational and financial constraints, not just technical controls.
 
-1. Azure Portal → **Virtual networks** → **+ Create**
-2. **Basics:**
-   - Resource group: `rg-secure-ai-prod`
-   - Name: `vnet-hub`
-   - Region: (your consistent project region)
-3. **IP Addresses:**
-   - Address space: `10.0.0.0/16`
-   - Delete the default subnet, then add:
-     - `AzureBastionSubnet` → `10.0.0.0/26` (this exact name is required by Azure Bastion; select **Azure Bastion** as the subnet purpose/template if offered — this may also auto-generate its NSG rules)
-     - `snet-shared-services` → `10.0.1.0/24` (subnet purpose: **Default**)
-4. **Review + create** → **Create**
+### Logging should begin with the network
 
-📸 **Screenshot to capture:** Hub VNet overview showing both subnets.
+Flow logs were enabled before Sentinel existed so the environment would not have an avoidable visibility gap between network deployment and SIEM onboarding.
 
-### Section 2: Create the Spoke VNet
+### Not every enterprise control belongs in a lab
 
-1. **Virtual networks** → **+ Create**
-2. **Basics:**
-   - Resource group: `rg-secure-ai-prod`
-   - Name: `vnet-spoke-ai`
-   - Region: same as hub
-3. **IP Addresses:**
-   - Address space: `10.1.0.0/16` — double-check this isn't left on Azure's default suggestion, which can auto-fill as `10.0.0.0/16` and collide with the hub
-   - Subnets:
-     - `snet-ai-workload` → `10.1.0.0/24`
-     - `snet-private-endpoints` → `10.1.1.0/24`
-4. **Review + create** → **Create**
+Azure Firewall was considered but intentionally omitted because its fixed hourly cost did not fit the lab budget. The decision was documented rather than hidden.
 
-📸 **Screenshot to capture:** Spoke VNet overview showing both subnets.
+---
 
-### Section 3: Peer the Hub and Spoke
+## Repository Navigation
 
-Peering must be configured from both sides — each VNet needs its own peering resource pointing at the other.
-
-1. `vnet-hub` → **Peerings** → **+ Add**
-   - Name of peering from hub to spoke: `hub-to-spoke`
-   - Remote virtual network: `vnet-spoke-ai`
-   - Name of peering from spoke to hub: `spoke-to-hub`
-   - Leave default traffic settings (allow forwarded traffic: off, allow gateway transit: off — no gateway exists)
-2. **Add** — this creates both peering resources in one step
-3. Confirm both show **Connected** status (may take a minute)
-
-📸 **Screenshot to capture:** Peerings page showing "Connected" status on both sides.
-
-### Section 4: Configure Network Security Groups
-
-Build one NSG per subnet, each default-deny with only explicit, necessary allow rules.
-
-> **Note on Service Tags:** when a rule below specifies a source or destination like `VirtualNetwork` or `AzureLoadBalancer`, these aren't top-level dropdown options in the Azure portal. Select **Service Tag** as the Source/Destination *type* first — a secondary field then appears where you choose the specific tag (`VirtualNetwork`, `AzureLoadBalancer`, `Internet`, etc.).
-
-**4.1 — NSG for snet-ai-workload**
-
-1. **Network security groups** → **+ Create**
-   - Name: `nsg-ai-workload`
-   - Resource group: `rg-secure-ai-prod`
-2. After creation, go to **Settings → Inbound security rules** → **+ Add**:
-   - **Allow-Bastion-Inbound**: Source = `10.0.0.0/26` (AzureBastionSubnet), Destination port = `3389, 22`, Priority `100`, Action = Allow
-   - Leave the default **DenyAllInbound** rule (priority 65500) in place — this is what makes the subnet default-deny
-3. Associate to subnet: NSG's own page → **Settings → Subnets** → **+ Associate** → Virtual network: `vnet-spoke-ai` → Subnet: `snet-ai-workload` → **OK**
-
-**4.2 — NSG for snet-private-endpoints**
-
-1. Create `nsg-private-endpoints`
-2. Inbound rule: **Allow-VNet-Inbound** — Source type: **Service Tag** → Source service tag: **VirtualNetwork**; Destination type: **Service Tag** → Destination service tag: **VirtualNetwork**; Port = 443, Priority `100`, Action = Allow (private endpoints only need to accept traffic from within the trusted network)
-3. Associate to `vnet-spoke-ai` / `snet-private-endpoints`, same Associate flow as above
-
-**4.3 — NSG for snet-shared-services**
-
-1. Create `nsg-shared-services`
-2. Inbound rule: **Allow-Bastion-Inbound** — Source = `10.0.0.0/26`, Port = `3389, 22`, Priority `100`, Action = Allow
-3. Associate to `vnet-hub` / `snet-shared-services`
-
-> **Note:** `AzureBastionSubnet` has its own Microsoft-managed requirements for NSG rules (specific inbound rules for the Bastion control plane on ports 443, 4443, and outbound rules for session traffic). If you attach an NSG to this subnet, follow Microsoft's current published Bastion NSG requirements exactly — misconfiguring this one can break Bastion entirely.
-
-📸 **Screenshot to capture:** Network Security Groups list showing all three NSGs with their associated subnets.
-
-### Section 5: Enable NSG Flow Logs
-
-Flow logs record what traffic each NSG actually allowed or denied — the difference between assuming your rules are correct and being able to prove it.
-
-1. Deploy a storage account to hold the logs: **Storage accounts** → **+ Create**
-   - Name: `stcontosoaiflowlogs` (must be globally unique — adjust if taken)
-   - Resource group: `rg-secure-ai-prod`
-   - Redundancy: LRS (sufficient for a lab)
-   - If prompted for a **Primary service** / storage account type selector during creation, choose **Azure Blob Storage or Azure Data Lake Storage Gen 2** — flow logs write JSON output to blob containers, and the other options (Azure Files, Queue, Table) won't work for this purpose
-   - **Networking tab:** disable public access if practical, or restrict to your own IP for now
-2. Azure Portal → **Network Watcher** → **NSG flow logs** → **+ Create**
-
-   The creation flow uses a unified resource picker rather than selecting one NSG directly:
-   - Under **Select virtual networks to enable flow logs**, click **+ Add subnets**
-   - In the **Select subnet** picker, check all three: `snet-ai-workload`, `snet-private-endpoints`, and `snet-shared-services` (these span both VNets but appear together in one list)
-   - **Skip `AzureBastionSubnet`** — its control-plane traffic is already governed by Microsoft's required Bastion NSG rules, and there's little value logging it for this project
-   - Confirm the selection — all three should now appear as rows in the flow log table
-   - **Storage account:** confirm `stcontosoaiflowlogs` is selected (should auto-populate since it's in the same region)
-   - **Retention days:** `30`
-   - **Analytics tab:** leave **Traffic Analytics** disabled — it requires a Log Analytics workspace, which doesn't exist until Phase 5
-   - **Review + create** → **Create**
-3. Once created, spot-check by opening one of the three NSGs directly → **Settings** → look for a **Flow logs** entry confirming it's active, rather than just trusting the subnet appeared in the picker
-
-📸 **Screenshot to capture:** NSG flow logs configuration page showing all three subnets enabled.
-
-> **Callback to Phase 5:** once the Log Analytics workspace exists, return here and enable **Traffic Analytics** on this same flow log configuration, pointing at that workspace — this upgrades raw flow log storage into queryable, visualized traffic data alongside the Sentinel detections built in that phase.
-
-### Section 6: Deploy Azure Bastion
-
-1. Azure Portal → search **Bastion** → **+ Create**
-2. **Basics:**
-   - Resource group: `rg-secure-ai-prod`
-   - Name: `bas-hub`
-   - Region: same as hub
-   - Tier: **Basic** (sufficient for this project; Standard adds features like native client support and shareable links not needed here)
-   - Virtual network: `vnet-hub`
-   - Subnet: `AzureBastionSubnet` (pre-created in Section 1)
-   - Public IP: Create new → `pip-bastion`
-3. **Review + create** → **Create** (takes several minutes to deploy)
-
-> Bastion bills continuously with no pause state — see the Approach section above for the deploy/delete cost discipline used across this project.
-
-📸 **Screenshot to capture:** Bastion resource overview showing Running status.
-
-### Section 7: Assign Azure Policy — Deny Public IP Creation
-
-Extends Phase 1's governance baseline to the network layer.
-
-1. Azure Portal → **Policy** → **Definitions** → search: `Not allowed resource types`
-
-   *(Alternative if unavailable in your policy catalog: search `Deny public IP` or use the custom `policies/deny-public-ip.json` definition included in this repo's `policies/` folder.)*
-2. **Assign** → Scope: `rg-secure-ai-prod` → configure to deny `Microsoft.Network/publicIPAddresses` creation
-3. Under **Exclusions**, add the Bastion public IP's full resource path (`<subscription>/rg-secure-ai-prod/pip-bastion`) — this is a name-based path, not an internal object ID, so recreating the IP under the identical name will continue matching this exclusion in future sessions without needing to update the policy again
-4. **Review + create** → **Create**
-
-📸 **Screenshot to capture:** Policy assignment confirming the deny-public-IP rule scoped to the resource group, including the exclusion.
-
-### Section 8: Testing & Validation
-
-**9.1 — Verify Peering Connectivity**
-`vnet-hub` → **Peerings** → confirm both peerings show **Connected**. Repeat check from `vnet-spoke-ai` → **Peerings**.
-
-**9.2 — Verify Flow Logs Are Capturing Data**
-> Azure only creates the `insights-logs-networksecuritygroupflowevent` container the first time actual flow log data is written — this requires both the flow log configuration to be fully provisioned (5-10 minutes) and real traffic passing through one of the three NSGs. With no VMs or resources deployed into these subnets yet, there may be little to nothing to capture at this point in the build. Treat full verification of this step as deferred until Phase 3 deploys a resource into `snet-ai-workload`, or until Bastion connectivity to a real VM is tested.
-
-Storage account `stcontosoaiflowlogs` → **Containers** → check for the `insights-logs-networksecuritygroupflowevent` container once traffic exists.
-
-**9.3 — Verify Effective NSG Rules**
-Once a VM exists in `snet-ai-workload` (Phase 3+), use **Network Watcher** → **Effective security rules** to confirm only the Bastion-sourced rule and the default deny are in effect — no unexpected allow rules from platform defaults.
-
-**9.4 — Test Bastion Connectivity**
-Once a test VM exists in the spoke (can be deferred to Phase 3 if no VM exists yet): VM → **Connect** → **Bastion** → confirm browser-based session opens with no public IP required on the VM itself.
-
-📸 **Screenshot to capture:** Flow log container contents (once available), plus effective security rules view or a successful Bastion session (whichever is available at this stage).
-
-### Completion Checklist
-
-- [ ] Hub VNet (`vnet-hub`) created with AzureBastionSubnet and snet-shared-services
-- [ ] Spoke VNet (`vnet-spoke-ai`) created with snet-ai-workload and snet-private-endpoints, correctly sized at 10.1.0.0/16
-- [ ] Bidirectional VNet peering established and confirmed Connected
-- [ ] Three NSGs created and associated to their respective subnets
-- [ ] AzureBastionSubnet NSG (if used) follows Microsoft's current Bastion requirements
-- [ ] NSG flow logs enabled on all three NSGs, storing to the flow logs storage account
-- [ ] Azure Bastion deployed and running in the hub
-- [ ] Azure Policy denying public IP creation assigned to the resource group, with a durable name-based exclusion for Bastion
-- [ ] Peering connectivity verified from both sides
-- [ ] Flow log storage confirmed capturing data (once traffic exists)
-- [ ] All screenshots captured and saved to `screenshots/phase-02/`
-
-</details>
+- **Detailed implementation:** [Phase 2 Runbook](../runbooks/02-network-architecture-runbook.md)
+- **Previous phase:** [Phase 1 — Identity Fortress](./01-identity-fortress.md)
+- **Next phase:** [Phase 3 — Azure AI Services Deployment](./03-openai-deployment.md)
+- **Project overview:** [Secure AI Deployment on Azure](../README.md)
 
 ---
 
 <div align="center">
 
-[← Back to Project Overview](../README.md)
+**Phase 2 complete — the AI workload now has a segmented, observable, and private network foundation.**
 
 </div>
