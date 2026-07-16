@@ -11,7 +11,7 @@
 
 This runbook documents the implementation steps used to create the Phase 2 Azure network foundation, including hub-spoke VNets, subnets, peering, Network Security Groups, NSG flow logging, Azure Bastion, and public-IP governance.
 
-Use the accompanying [Phase 2 Portfolio Case Study](../docs/02-network-architecture.md) for the executive summary, architecture, engineering decisions, results, and lessons learned.
+Use the accompanying [Phase 2 Portfolio Case Study](../02-network-architecture.md) for the executive summary, architecture, engineering decisions, results, and lessons learned.
 
 ---
 
