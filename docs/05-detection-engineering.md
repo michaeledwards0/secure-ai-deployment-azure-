@@ -1,158 +1,253 @@
 <div align="center">
 
 # Phase 5: Detection Engineering
-### Microsoft Sentinel, Analytics Rules, and Automated Response — Contoso AI Labs
+### Microsoft Sentinel, KQL Analytics, and Automated Response
+
+**Contoso AI Labs | Microsoft Sentinel | KQL | Logic Apps | Identity and AI Telemetry**
 
 </div>
 
 ---
 
-## Overview
+## Executive Summary
 
-Phase 5 builds the detection and response layer: a Log Analytics workspace, Microsoft Sentinel enabled on top of it, custom KQL analytics rules covering both identity and AI-specific threats, and a Logic App playbook for automated response. This phase also **retroactively enables the Conditional Access Insights and Reporting workbook** flagged as unavailable back in Phase 1 — once diagnostic settings stream Entra sign-in data into this workspace, that page comes online.
+With governance, Defender for Cloud, and centralized telemetry established, this phase converted collected logs into actionable detections.
 
-**Environment:** Personal Azure tenant (`contosoailabs.onmicrosoft.com`) | **Duration:** ~3-4 hours | **Standard:** SC-500 blueprint
+I enabled Microsoft Sentinel on the existing Log Analytics Workspace, verified identity and Azure AI telemetry, created analytics rules for high-risk identity and AI behaviors, added dedicated monitoring for the emergency-access account, and designed a narrowly scoped Logic App playbook for automated containment.
 
-### Design Rationale
-
-**Why Sentinel instead of relying on Defender for Cloud alerts alone:** Defender for Cloud surfaces posture and known threat signatures. Sentinel is a SIEM — it correlates across data sources with custom logic you define, which is what makes detections like "impossible travel combined with AI resource access" possible. Defender tells you a resource is misconfigured; Sentinel tells you someone is actively behaving suspiciously across multiple signals.
-
-**Why the break-glass monitoring alert specifically:** Phase 1 committed to monitoring any break-glass sign-in as a serious alert. Since that account should never be used outside a true emergency, any sign-in at all is inherently suspicious — this is one of the highest-confidence, lowest-false-positive detections possible in the entire environment.
-
-**Why a Logic App playbook instead of manual response:** Manual response introduces delay between detection and containment. An automated playbook (e.g., disabling a user account on a jailbreak-attempt detection) closes that gap, though it's deliberately scoped to a narrow, high-confidence trigger to avoid automating a response to a false positive.
+> **Outcome:** The platform gained a centralized SIEM layer capable of detecting suspicious identity activity, AI abuse patterns, and unauthorized access while preserving human review for lower-confidence events.
 
 ---
 
-## Case Study
+## Project Snapshot
 
-### Objective
-Establish continuous detection coverage across identity and AI workload telemetry, enabling both custom threat detection and the sign-in analytics that were dependent on this phase's infrastructure since Phase 1.
-
-### Approach
-*[Fill in after execution — describe your reasoning for which KQL detections were prioritized first, any false positives encountered while tuning thresholds, and why the playbook trigger was scoped the way it was.]*
-
-### Controls Implemented
-- Log Analytics workspace deployed, with diagnostic settings streaming Entra ID `SignInLogs` and `AuditLogs`, plus Azure AI services resource logs
-- Microsoft Sentinel enabled on the workspace
-- Five custom KQL analytics rules: prompt injection detection, anomalous token consumption, off-hours AI access, impossible travel for AI resource access, jailbreak attempt detection
-- Dedicated high-priority analytics rule for any break-glass account sign-in
-- Logic App playbook for automated response to confirmed jailbreak attempts
-- Conditional Access Insights and Reporting workbook now functional (dependency resolved from Phase 1)
-
-### Frameworks Applied
-- NIST 800-61 (Computer Security Incident Handling)
-- OWASP Top 10 for LLM Applications — LLM01 (Prompt Injection), LLM04 (Model Denial of Service via token abuse)
-- MITRE ATT&CK — mapped per analytics rule (see `kql/` folder for per-query mappings)
-
-### Evidence
-*[Screenshots added after execution — see capture list in the Execution Guide below.]*
-
-### Lessons Learned
-*[Fill in after execution.]*
+| Category | Details |
+|---|---|
+| **Platform** | Microsoft Azure |
+| **Primary focus** | Detection engineering, incident generation, and automated response |
+| **Key services** | Microsoft Sentinel, Log Analytics, KQL, Logic Apps, Microsoft Entra ID |
+| **Security concepts** | SIEM, correlation, analytics rules, entity mapping, automation, alert tuning |
+| **Threats addressed** | Prompt injection, jailbreak behavior, anomalous token usage, off-hours access, impossible travel, emergency-account use |
+| **Framework alignment** | NIST 800-61, MITRE ATT&CK, OWASP Top 10 for LLM Applications |
+| **Validation** | Rules enabled, test incidents generated, entity mappings reviewed, automation scoped |
 
 ---
 
-## Next Phase
+## Business Context
 
-➡️ **[Phase 6: Red Team Validation](./06-red-team-findings.md)**
+The environment already collected Azure Activity, Entra, Key Vault, and Azure AI telemetry. Logs alone, however, do not provide an operational defense unless they are transformed into detections that analysts can investigate.
 
-With detections live, Phase 6 validates them — deliberately triggering each attack pattern the analytics rules are designed to catch, and documenting whether they fired as expected.
+Contoso needed a SIEM layer that could correlate identity and workload behavior, prioritize high-confidence events, and support repeatable response procedures.
 
 ---
 
-<details>
-<summary><strong>📋 Full Execution Guide (click to expand)</strong> — step-by-step build instructions and completion checklist</summary>
+## Security Challenge
 
-<br>
+The detection layer needed to:
 
-**Prerequisites:** Phases 1–4 complete
+- Use telemetry already collected in Phase 4
+- Detect both identity and AI-specific threats
+- Avoid creating rules that could never fire because the required fields were unavailable
+- Map accounts, hosts, IP addresses, and Azure resources into Sentinel entities
+- Balance alert sensitivity against false positives
+- Restrict automated containment to high-confidence scenarios
+- Produce testable incidents for Phase 8 adversarial validation
 
-### Section 1: Deploy the Log Analytics Workspace
+---
 
-1. Azure Portal → **Log Analytics workspaces** → **+ Create**
-   - Resource group: `rg-secure-ai-prod`
-   - Name: `log-contoso-ai-sentinel`
-   - Region: consistent with prior phases
-2. Create
+## Architecture
 
-### Section 2: Enable Microsoft Sentinel
+```mermaid
+flowchart LR
+    Entra["Microsoft Entra ID\nSign-in and Audit Logs"]
+    AI["Azure AI Services\nAudit, Usage, and Request Logs"]
+    Azure["Azure Activity Logs"]
+    Defender["Defender for Cloud Alerts"]
 
-1. Azure Portal → search **Microsoft Sentinel** → **+ Create**
-2. Select `log-contoso-ai-sentinel` as the workspace → **Add**
+    LAW["Log Analytics Workspace\nlaw-contoso-ai"]
+    Sentinel["Microsoft Sentinel"]
+    Rules["Scheduled Analytics Rules\nKQL"]
+    Incidents["Sentinel Incidents"]
+    Playbook["Logic App Playbook\nControlled Response"]
+    Analyst["Analyst Investigation"]
 
-📸 **Screenshot to capture:** Sentinel overview page showing the workspace connected. Save as `screenshots/phase-05/01-sentinel-enabled.png`.
+    Entra --> LAW
+    AI --> LAW
+    Azure --> LAW
+    Defender --> LAW
+    LAW --> Sentinel
+    Sentinel --> Rules
+    Rules --> Incidents
+    Incidents --> Analyst
+    Incidents --> Playbook
+```
 
-### Section 3: Connect Diagnostic Settings
+---
 
-1. Entra ID → **Diagnostic settings** → **+ Add diagnostic setting**
-   - Name: `diag-entra-to-sentinel`
-   - Logs: `SignInLogs`, `AuditLogs`, `NonInteractiveUserSignInLogs`
-   - Destination: send to `log-contoso-ai-sentinel`
-2. Azure AI services resource (`ai-contoso-openai`) → **Diagnostic settings** → **+ Add diagnostic setting**
-   - Logs: all available categories (audit, request/response tracing if enabled)
-   - Destination: same workspace
+## What I Implemented
 
-📸 **Screenshot to capture:** Diagnostic settings pages for both Entra ID and the AI resource, confirming both stream to the workspace. Save as `screenshots/phase-05/02-diagnostic-settings-connected.png`.
+### Microsoft Sentinel Onboarding
 
-### Section 4: Verify the Insights and Reporting Workbook
+Microsoft Sentinel was enabled on `law-contoso-ai`, preserving the centralized telemetry foundation created in Phase 4 rather than creating a second workspace.
 
-1. Entra ID → **Conditional Access** → **Insights and reporting**
-2. Confirm the page now loads (previously 401'd in Phase 1 due to the missing workspace)
-3. Review policy impact trends across CA01–CA06
+### Data Validation
 
-📸 **Screenshot to capture:** Insights and reporting workbook now loading successfully. Save as `screenshots/phase-05/03-insights-workbook-online.png`.
+The workspace was checked for the tables and fields required by each detection, including:
 
-### Section 5: Build Custom Analytics Rules
+- `SigninLogs`
+- `AuditLogs`
+- `AzureActivity`
+- Azure AI or resource diagnostic tables
+- Defender and security alert tables where available
 
-Use the KQL queries in this repo's `kql/` folder as the query logic for each rule. For each: Sentinel → **Analytics** → **+ Create** → **Scheduled query rule**.
+### Custom Analytics Rules
 
-1. **Prompt Injection Detection** (`kql/prompt-injection-detection.kql`) — MITRE ATT&CK: Initial Access (T1190 analog for LLM context)
-2. **Anomalous Token Consumption** (`kql/anomalous-token-consumption.kql`) — detects usage spikes suggesting abuse or a compromised key
-3. **Off-Hours AI Access** (`kql/off-hours-ai-access.kql`) — flags AI resource access outside expected business hours
-4. **Impossible Travel for AI Access** (`kql/impossible-travel-ai.kql`) — correlates sign-in geolocation with AI resource access timing
-5. **Jailbreak Attempt Detection** (`kql/jailbreak-attempts.kql`) — pattern-matches known jailbreak prompt structures
+The detection set included:
 
-**Additionally, build a dedicated high-severity rule:**
+| Detection | Purpose | Default Severity |
+|---|---|---|
+| Prompt Injection Indicators | Detect known instruction-override and prompt-manipulation patterns | Medium |
+| Jailbreak Indicators | Identify common attempts to bypass model safeguards | High |
+| Anomalous Token Consumption | Identify sudden usage spikes or potential abuse | Medium |
+| Off-Hours AI Access | Flag AI workload activity outside expected operating hours | Low/Medium |
+| Impossible-Travel Correlation | Identify geographically inconsistent sign-ins near AI access | High |
+| Break-Glass Account Sign-In | Alert on any use of the emergency account | High |
 
-6. **Break-Glass Account Sign-In** — any successful or attempted sign-in from `breakglass@contosoailabs.onmicrosoft.com`, severity: **High**, since this account should never be used outside a genuine emergency
+### Entity Mapping
 
-📸 **Screenshot to capture:** Analytics rules list showing all six rules active. Save as `screenshots/phase-05/04-analytics-rules-active.png`.
+Rules were configured to map available entities such as:
 
-### Section 6: Build the Automated Response Playbook
+- Account
+- IP address
+- Host
+- Azure resource
+- Cloud application
 
-1. Sentinel → **Automation** → **+ Create** → **Playbook with incident trigger**
-2. Name: `auto-disable-jailbreak-user` (matches `playbooks/auto-disable-jailbreak-user.json` in this repo)
-3. Logic: on trigger from the Jailbreak Attempt Detection rule, disable the associated user account in Entra ID and post a notification to your email
-4. Attach the playbook to the Jailbreak Attempt Detection analytics rule as an automated response
+### Automated Response
 
-📸 **Screenshot to capture:** Logic App designer showing the playbook logic, and the analytics rule's automation tab showing it attached. Save as `screenshots/phase-05/05-automation-playbook.png`.
+A Logic App playbook was designed for high-confidence incidents. The response flow included:
 
-### Section 7: Test End-to-End
+1. Receive the Sentinel incident
+2. Validate the triggering analytics rule and account
+3. Exclude emergency and service accounts
+4. Notify the administrator
+5. Contain the test identity only when the conditions are satisfied
 
-1. Generate a benign test event that should trigger one rule (e.g., a deliberate off-hours sign-in or a break-glass test sign-in — coordinate timing so this doesn't trigger unrelated alerts)
-2. Confirm an incident appears in **Sentinel → Incidents**
-3. For the jailbreak rule specifically, confirm the playbook fired and the test account was disabled
+### Conditional Access Insights
 
-📸 **Screenshot to capture:** Sentinel Incidents page showing a triggered incident from your test. Save as `screenshots/phase-05/06-incident-triggered.png`.
+The Conditional Access Insights and Reporting workbook was revisited after the Log Analytics dependency was satisfied.
 
-### Completion Checklist
+---
 
-- [ ] Log Analytics workspace deployed
-- [ ] Microsoft Sentinel enabled on the workspace
-- [ ] Diagnostic settings connected for Entra ID and the Azure AI services resource
-- [ ] Conditional Access Insights and Reporting workbook confirmed functional
-- [ ] Five custom KQL analytics rules built and active
-- [ ] Break-glass account sign-in rule built as a dedicated high-severity detection
-- [ ] Automated response playbook built and attached to the jailbreak detection rule
-- [ ] End-to-end test confirms incident generation and (where applicable) automated response
-- [ ] All screenshots captured and saved to `screenshots/phase-05/`
+## Key Engineering Decisions and Tradeoffs
 
-</details>
+| Decision | Rationale | Tradeoff |
+|---|---|---|
+| Reuse `law-contoso-ai` | Preserves one central telemetry plane | Requires careful table and retention management |
+| Use scheduled KQL rules | Supports custom AI and identity logic | Requires tuning and ongoing maintenance |
+| Alert on every break-glass sign-in | Emergency-account use should be extremely rare | Legitimate emergency use still generates an incident |
+| Automate only high-confidence response | Reduces containment delay without over-automating | Lower-confidence incidents remain manual |
+| Validate schema before rule deployment | Prevents nonfunctional queries | Adds engineering time before activation |
+| Map Sentinel entities | Improves investigation graphs and automation inputs | Depends on fields available in each log source |
+
+---
+
+## Implementation Issues and Resolutions
+
+### Log schemas varied by diagnostic source
+
+**Issue:** Azure AI logs and fields can differ by resource type and diagnostic configuration.
+
+**Resolution:** Ran discovery queries first and adapted each rule to the tables and columns actually present in the workspace.
+
+### A rule could be syntactically valid but operationally useless
+
+**Issue:** Queries may run successfully while returning no meaningful events because the required logging category is not enabled.
+
+**Resolution:** Validated data ingestion and generated controlled test activity before enabling production-style schedules.
+
+### Automated account disablement created unnecessary risk
+
+**Issue:** Automatically disabling a user based only on a broad text-pattern rule could create a false-positive outage.
+
+**Resolution:** Scoped the playbook to a dedicated test identity and high-confidence conditions, with notification and exclusions.
+
+---
+
+## Results and Validation
+
+| Result | Validation |
+|---|---|
+| Sentinel enabled | `law-contoso-ai` appeared as an active Sentinel workspace |
+| Required tables identified | Discovery queries returned identity and Azure platform telemetry |
+| Analytics rules active | Detection rules displayed as enabled |
+| Entity mappings configured | Account, IP, and resource fields mapped where available |
+| Break-glass monitoring established | Dedicated high-severity rule created |
+| Controlled automation prepared | Logic App linked to the intended incident path |
+| End-to-end incident generated | Controlled test activity produced a Sentinel incident |
+
+---
+
+## Evidence
+
+| Control | What it proves | Screenshot |
+|---|---|---|
+| Sentinel enabled | The existing workspace was onboarded to Microsoft Sentinel | `screenshots/phase-05/01-sentinel-enabled.png` |
+| Data connectors and tables | Identity and workload telemetry reached the workspace | `screenshots/phase-05/02-data-ingestion.png` |
+| Conditional Access workbook | The Phase 1 reporting dependency was resolved | `screenshots/phase-05/03-insights-workbook-online.png` |
+| Analytics rules | Custom detections were deployed and active | `screenshots/phase-05/04-analytics-rules-active.png` |
+| Entity mappings | Incidents contain useful investigation entities | `screenshots/phase-05/05-entity-mappings.png` |
+| Automation playbook | Controlled response workflow was attached | `screenshots/phase-05/06-automation-playbook.png` |
+| Triggered incident | End-to-end detection generated an incident | `screenshots/phase-05/07-incident-triggered.png` |
+
+---
+
+## Framework Mapping
+
+| Framework | Application |
+|---|---|
+| **NIST 800-61** | Detection, analysis, containment, and incident-handling readiness |
+| **MITRE ATT&CK** | Technique mapping for identity, access, and suspicious execution behaviors |
+| **OWASP Top 10 for LLM Applications** | Prompt-injection, model-abuse, and resource-consumption monitoring |
+| **Microsoft Cloud Adoption Framework** | Centralized monitoring and security operations |
+
+---
+
+## Lessons Learned
+
+### Detection engineering starts with data engineering
+
+A detection cannot compensate for missing telemetry. Table discovery, diagnostic configuration, and field validation must occur before writing the final rule.
+
+### A query is not finished when it runs
+
+The rule must also have a usable schedule, threshold, entity mapping, incident grouping strategy, and response owner.
+
+### Automation requires a higher confidence threshold
+
+A false-positive alert is inconvenient; an automated false-positive containment action can interrupt legitimate operations.
+
+### Break-glass accounts are ideal high-confidence detections
+
+The expected usage frequency is close to zero, making any sign-in worthy of immediate review.
+
+### Detection validation belongs in a separate adversarial phase
+
+Phase 5 establishes and unit-tests the detection layer. Phase 8 later evaluates the controls through structured attack simulation and documents findings.
+
+---
+
+## Related Documentation
+
+- [Phase 4 — Governance & Defender for Cloud](./04-governance-defender.md)
+- [Phase 5 Runbook](./runbooks/05-detection-engineering-runbook.md)
+- [Phase 6 — Business Continuity & Recovery](./06-business-continuity-recovery.md)
+- [Project Overview](../README.md)
 
 ---
 
 <div align="center">
 
-[← Back to Project Overview](../README.md)
+**Phase 5 complete — centralized telemetry now drives actionable detection, investigation, and controlled response.**
 
 </div>
