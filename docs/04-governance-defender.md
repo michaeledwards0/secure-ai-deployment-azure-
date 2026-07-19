@@ -218,15 +218,13 @@ from the ability to modify the environment.
 
 | Control | What it proves | Screenshot |
 |---|---|---|
-| Policy compliance review | Earlier policy assignments were evaluated against the completed environment | `screenshots/phase-04/01-policy-compliance-review.png` |
-| Defender plans enabled | AI Services, Key Vault, and Servers workload-protection plans were activated | `screenshots/phase-04/02-defender-plans-enabled.png` |
-| Secure Score baseline | Cloud security posture was measured and recommendations were available | `screenshots/phase-04/03-secure-score-baseline.png` |
-| Governance Reader role | Audit access was separated from administrative permissions | `screenshots/phase-04/04-reader-role-assigned.png` |
-| Full governance baseline | Phase 1, Phase 2, and Phase 4 policy assignments were visible in one view | `screenshots/phase-04/05-full-governance-baseline.png` |
-| Log Analytics Workspace | Centralized analytics destination was deployed and operational | `screenshots/phase-04/06-log-analytics-workspace.png` |
-| AI diagnostic settings | Audit logs, resource logs, and metrics were enabled for Azure AI Services | `screenshots/phase-04/07-ai-diagnostic-settings.png` |
-| Dual log destinations | Log Analytics and Storage Account destinations were configured | `screenshots/phase-04/08-diagnostic-destinations.png` |
-| Azure Activity Logs | Subscription control-plane events were routed to the workspace | `screenshots/phase-04/09-activity-log-export.png` |
+| Policy compliance review | Earlier policy assignments were evaluated against the completed environment | <img width="1215" height="761" alt="image" src="https://github.com/user-attachments/assets/a23fc8a4-0841-46a0-ba95-68e6fc6a43d5" /> |
+| Defender plans enabled | AI Services, Key Vault, and Servers workload-protection plans were activated | <img width="1230" height="887" alt="image" src="https://github.com/user-attachments/assets/801cff6e-d592-4ff8-bd79-6dff1f7ace8c" /> |
+| Secure Score baseline | Cloud security posture was measured and recommendations were available | <img width="1218" height="823" alt="image" src="https://github.com/user-attachments/assets/c6d9ca0d-8e28-42c8-b8e5-73b92400de50" /> |
+| Governance Reader role | Audit access was separated from administrative permissions |<img width="1231" height="494" alt="image" src="https://github.com/user-attachments/assets/6c1601e5-7a58-4d96-9ac5-2106d07031e1" /> |
+| Log Analytics Workspace | Centralized analytics destination was deployed and operational | <img width="609" height="345" alt="image" src="https://github.com/user-attachments/assets/973d6a61-5f2b-492e-a710-b8f068892041" /> |
+| AI diagnostic settings | Audit logs, resource logs, and metrics were enabled for Azure AI Services | <img width="676" height="441" alt="image" src="https://github.com/user-attachments/assets/4594f9c0-d304-4ca3-bf70-7c41a37540c9" /> |
+| Azure Activity Logs | Subscription control-plane events were routed to the workspace | <img width="1235" height="841" alt="image" src="https://github.com/user-attachments/assets/a00679a4-5d40-4b28-9f52-7473dde31c6d" /> |
 | Microsoft Entra logs | Identity audit and sign-in telemetry was routed to the workspace | `screenshots/phase-04/10-entra-diagnostic-settings.png` |
 
 > Replace the screenshot paths above with your GitHub attachment URLs after uploading the images to the repository issue, pull request, or README editor.
