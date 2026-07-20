@@ -192,10 +192,10 @@ The Conditional Access Insights and Reporting workbook was revisited after the L
 
 | Control | What it proves | Screenshot |
 |---|---|---|
-| Sentinel enabled | The existing workspace was onboarded to Microsoft Sentinel | `screenshots/phase-05/01-sentinel-enabled.png` |
-| Data connectors and tables | Identity and workload telemetry reached the workspace | `screenshots/phase-05/02-data-ingestion.png` |
-| Conditional Access workbook | The Phase 1 reporting dependency was resolved | `screenshots/phase-05/03-insights-workbook-online.png` |
-| Analytics rules | Custom detections were deployed and active | `screenshots/phase-05/04-analytics-rules-active.png` |
+| Sentinel enabled | The existing workspace was onboarded to Microsoft Sentinel | <img width="988" height="318" alt="image" src="https://github.com/user-attachments/assets/5a373273-8871-4c85-8b1c-268babd27b65" /> |
+| Data connectors and tables | Identity and workload telemetry reached the workspace | <img width="1080" height="852" alt="image" src="https://github.com/user-attachments/assets/b4ca3f09-5062-4d2d-bde1-7d8d59ba94c0" /> |
+| Conditional Access workbook | The Phase 1 reporting dependency was resolved | <img width="975" height="461" alt="image" src="https://github.com/user-attachments/assets/5f7b46b5-102a-4496-a957-d57721ee081b" /> |
+| Analytics rules | Custom detections were deployed and active | <img width="1294" height="775" alt="image" src="https://github.com/user-attachments/assets/0c3a8b18-110b-4c76-8f3b-b6a1538061b7" /> |
 | Entity mappings | Incidents contain useful investigation entities | `screenshots/phase-05/05-entity-mappings.png` |
 | Automation playbook | Controlled response workflow was attached | `screenshots/phase-05/06-automation-playbook.png` |
 | Triggered incident | End-to-end detection generated an incident | `screenshots/phase-05/07-incident-triggered.png` |
