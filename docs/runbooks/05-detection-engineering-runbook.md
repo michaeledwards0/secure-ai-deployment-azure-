@@ -22,7 +22,7 @@ This runbook covers:
 - Microsoft Sentinel onboarding
 - Data-source validation
 - KQL schema discovery
-- Six analytics rules
+- Four telemetry-supported analytics rules
 - Entity mapping
 - Incident grouping
 - Logic App automation
@@ -88,8 +88,8 @@ Check for expected tables such as:
 - `SigninLogs`
 - `AuditLogs`
 - `AzureActivity`
-- `AzureDiagnostics`
-- Resource-specific Azure AI tables
+- `AzureDiagnostics` for Azure AI administrative telemetry
+- `AzureMetrics` where supported
 - `SecurityAlert` or Defender-related tables where available
 
 Generate benign test activity if required.
@@ -97,10 +97,12 @@ Generate benign test activity if required.
 ## Validation
 
 - [ ] Identity logs present
-- [ ] Azure Activity present
-- [ ] AI/resource telemetry present
+- [ ] Azure Activity present, if subscription Activity Log export is configured
+- [ ] Azure AI administrative telemetry present in `AzureDiagnostics`
 - [ ] Timestamps are current
 - [ ] Workspace time range includes test events
+
+> `search *` only displays tables that contain records in the selected time range. A configured connector or diagnostic setting does not guarantee that a table will appear until a new matching event is generated.
 
 ---
 
@@ -150,61 +152,84 @@ SigninLogs
 
 ---
 
-# 5. Build the Off-Hours AI Access Rule
+# 5. Build the Off-Hours Azure AI Administrative Change Rule
 
-1. Confirm the AI access table and timestamp field.
-2. Define expected business hours.
-3. Create `Off-Hours AI Access`.
-4. Filter events outside the approved time window.
-5. Map account, IP, and resource where available.
-6. Start at Low or Medium severity.
-7. Test with controlled activity.
+The available Azure AI telemetry in this lab contained administrative `Audit` events rather than model-inference request content. Therefore, the original **Off-Hours AI Access** idea was revised to detect administrative changes made to the Azure AI resource outside approved hours.
 
----
-
-# 6. Build the Anomalous Token-Consumption Rule
-
-1. Identify the usage or token-count field.
-2. Establish a baseline from available data.
-3. Create a query comparing recent consumption to historical behavior.
-4. Use thresholds suitable for a small lab.
-5. Avoid hard-coding a threshold that cannot be justified.
-6. Enable after validation.
+1. Open **Sentinel → Analytics → Create → Scheduled query rule**.
+2. Name: `Off-Hours Azure AI Administrative Change`.
+3. Severity: Low or Medium.
+4. Use the Azure AI administrative records available in `AzureDiagnostics`.
+5. Convert UTC timestamps to the intended local time zone.
+6. Detect events outside approved business hours and on weekends.
+7. Map the Azure resource and initiating account only when those fields are present.
+8. Enable incident creation and test with a benign configuration change.
 
 Example pattern:
 
 ```kusto
-// Replace table and fields with those present in the workspace.
 AzureDiagnostics
-| where ResourceProvider has "COGNITIVE"
-| summarize Requests=count() by bin(TimeGenerated, 15m), Resource
-| order by TimeGenerated desc
+| where Category == "Audit"
+| where OperationName has_any ("UpdateResource", "Vnet")
+| extend LocalTime = datetime_utc_to_local(TimeGenerated, "US/Central")
+| extend LocalHour = hourofday(LocalTime), DayOfWeek = dayofweek(LocalTime)
+| where LocalHour < 7 or LocalHour >= 19 or DayOfWeek in (time(0.00:00:00), time(6.00:00:00))
+| project TimeGenerated, LocalTime, OperationName, ResourceId, ResultType, CallerIpAddress
 ```
+
+> Adjust the operation names, hours, projected fields, and entity mappings to match the columns present in the workspace.
 
 ---
 
-# 7. Build Prompt-Injection and Jailbreak Indicator Rules
+# 6. Build the Privileged Group Membership Change Rule
 
-1. Confirm that request text or relevant classifications are actually logged.
-2. If prompt text is unavailable, detect supported proxy indicators rather than claiming content inspection.
-3. Store queries in:
-   - `kql/prompt-injection-detection.kql`
-   - `kql/jailbreak-attempts.kql`
-4. Configure severity based on confidence.
-5. Add entity mappings.
-6. Enable incident creation.
-7. Test using benign, authorized strings in the lab.
+This rule replaced unsupported prompt-content detections. It uses Microsoft Entra `AuditLogs`, which were available after diagnostic settings were configured and fresh audit activity was generated.
+
+1. Generate a controlled event by adding or removing a test user from a privileged test group.
+2. Confirm the event appears in `AuditLogs`.
+3. Open **Sentinel → Analytics → Create → Scheduled query rule**.
+4. Name: `Privileged Group Membership Change`.
+5. Severity: Medium or High, depending on group scope.
+6. Filter for group membership add/remove operations.
+7. Scope the rule to approved privileged groups where possible.
+8. Map the initiating account, target account, and IP address only when the query exposes them.
+9. Enable incident creation and configure grouping by group or target account.
+
+Example discovery pattern:
+
+```kusto
+AuditLogs
+| where OperationName has_any ("Add member to group", "Remove member from group")
+| project TimeGenerated, OperationName, InitiatedBy, TargetResources, Result, CorrelationId
+| order by TimeGenerated desc
+```
+
+> Parse `InitiatedBy` and `TargetResources` only after confirming their structure in the tenant. Do not map fields that are not present in the final query output.
+
+---
+
+# 7. Deferred Detections Due to Missing Telemetry
+
+The following planned detections were removed from Phase 5 because the required telemetry was not available in the workspace:
+
+- **Anomalous Token Consumption** — no Azure OpenAI token-consumption metrics were present in `AzureMetrics`.
+- **Prompt Injection and Jailbreak Detection** — prompt text, request bodies, and content-filter classifications were not being ingested.
+
+These detections must not be claimed as implemented. Revisit them only after enabling a telemetry source that exposes the required fields. Prompt-injection and jailbreak validation may be addressed during Phase 8 red-team testing.
 
 ---
 
 # 8. Build Impossible-Travel Correlation
 
-1. Use `SigninLogs` location and timestamp data.
+1. Use successful `SigninLogs` records with user, time, and location data.
 2. Scope the rule to identities that can reach or administer the AI workload.
-3. Correlate geographically distant sign-ins within an unrealistic time window.
-4. Consider VPN and mobile-network false positives.
-5. Start in low-volume testing mode.
-6. Enable after tuning.
+3. Compare each sign-in with the previous successful sign-in for the same user.
+4. Calculate elapsed time, geographic distance, and estimated travel speed.
+5. Consider VPN, mobile carrier, and incomplete geolocation data as expected false-positive sources.
+6. Run the complete query as one selection in the Logs editor. Running only part of a multi-statement query can cause errors such as unresolved variables or missing tabular expressions.
+7. Start in low-volume testing mode and enable only after the query runs successfully against actual tenant fields.
+
+> An empty result is valid and means no impossible-travel pattern was found during the selected time range.
 
 ---
 
@@ -232,17 +257,22 @@ Open a test incident and confirm the Investigation graph contains useful entitie
 
 1. Open **Sentinel → Automation → Create → Playbook with incident trigger**.
 2. Name: `auto-contain-ai-test-user`.
-3. Use a managed identity where supported.
-4. Add conditions:
+3. Use the **Microsoft Sentinel incident** trigger.
+4. Publish or save the Logic App before attempting to attach it to an automation rule.
+5. Use a managed identity where supported.
+6. Add conditions:
    - Incident created by the intended rule
    - Account equals the dedicated test identity
    - Account is not an emergency, administrator, or service account
-5. Actions:
-   - Notify the administrator
+7. Actions:
    - Add an incident comment
+   - Notify the administrator only after configuring the required Outlook or Teams API connection
    - Optionally disable the dedicated test identity
-6. Save.
-7. Grant the playbook identity only the permissions required.
+8. For **Add comment to incident**, manually enter or bind the incident ARM ID as required by the current portal experience.
+9. Save and publish the workflow.
+10. Grant the playbook identity only the permissions required.
+
+> Outlook and Teams actions require separate API connections. They may be omitted during the first validation so the Sentinel trigger and incident-comment action can be tested independently.
 
 > Keep account disablement limited to a dedicated test identity until the logic is proven.
 
@@ -251,11 +281,13 @@ Open a test incident and confirm the Investigation graph contains useful entitie
 # 11. Create the Automation Rule
 
 1. Open **Sentinel → Automation**.
-2. Create an automation rule.
+2. Create a **Standard** automation rule. Do not select an Enhanced Rule for this workflow.
 3. Trigger: Incident created.
 4. Condition: Analytics rule name matches the approved high-confidence rule.
-5. Action: Run `auto-contain-ai-test-user`.
-6. Enable the automation rule.
+5. Action: **Run playbook**. Do not use **Run generated playbook**, which only lists AI-generated playbooks.
+6. Select `auto-contain-ai-test-user`.
+7. If the playbook does not appear, use **Manage playbook permissions** and grant Microsoft Sentinel the required Automation Contributor access to the resource group containing the Logic App.
+8. Enable the automation rule.
 
 ---
 
@@ -263,8 +295,13 @@ Open a test incident and confirm the Investigation graph contains useful entitie
 
 1. Open **Microsoft Entra ID → Conditional Access → Insights and reporting**.
 2. Select `law-contoso-ai` if prompted.
-3. Confirm the workbook loads.
-4. Review policy results over the available time range.
+3. Confirm the embedded workbook loads. It opens directly inside the Entra Conditional Access blade rather than as a separate workbook page.
+4. Select **User sign-ins**.
+5. Change the workspace filter from **All** to `law-contoso-ai` when available.
+6. Expand the time range, such as **Last 7 days**, if the default 24-hour window has little data.
+7. Review the Impact Summary and policy-result details.
+
+> A result of **Not applied** still confirms that the workbook is functioning; it means no enabled Conditional Access policy applied to that sign-in. The warning about `ServicePrincipalSignInLogs` affects only the service-principal tab.
 
 ---
 
@@ -295,11 +332,11 @@ Open a test incident and confirm the Investigation graph contains useful entitie
 ## Analytics
 
 - [ ] Break-glass rule created
-- [ ] Off-hours rule created
-- [ ] Token-consumption rule created
-- [ ] Prompt-injection indicator rule created
-- [ ] Jailbreak indicator rule created
-- [ ] Impossible-travel rule created
+- [ ] Off-hours Azure AI administrative-change rule created
+- [ ] Privileged group membership-change rule created
+- [ ] Impossible-travel rule validated or documented as producing no results
+- [ ] Token-consumption detection documented as deferred due to missing telemetry
+- [ ] Prompt-injection and jailbreak detections documented as deferred due to missing telemetry
 - [ ] Entity mappings configured
 - [ ] Incident grouping configured
 
@@ -356,6 +393,18 @@ Check scheduling, lookback, threshold, query results, rule enabled state, and in
 
 Review entity mappings and ensure the selected columns are included in the final query projection.
 
+## Playbook does not appear in the automation rule
+
+Confirm the Logic App is saved or published, create a **Standard** automation rule, choose **Run playbook** rather than **Run generated playbook**, and configure **Manage playbook permissions** for the resource group.
+
+## Add Comment to Incident cannot resolve the incident ID
+
+Use the incident ARM ID expected by the Sentinel connector. In some portal experiences this value must be entered or bound manually rather than selected from Dynamic Content.
+
+## Outlook or Teams action requests a connection
+
+These actions require an API connection. Configure the connection explicitly or omit the notification action during the initial playbook test.
+
 ## Playbook cannot disable the test user
 
 Check managed-identity permissions, connector authentication, automation-rule conditions, and whether the account is protected by exclusions.
@@ -377,6 +426,6 @@ Increase thresholds, narrow scope, add allowlists, and configure incident groupi
 
 <div align="center">
 
-**Runbook complete — verify each rule against real workspace fields before relying on it operationally.**
+**Runbook complete — only enable detections supported by telemetry actually present in the workspace.**
 
 </div>
